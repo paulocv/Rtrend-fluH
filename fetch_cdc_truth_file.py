@@ -51,7 +51,7 @@ def main():
         print("\nThe file was NOT downloaded.")
         return
 
-    # Check status, raise error if unsucessful
+    # Check status, raise error if unsuccessful
     r.raise_for_status()
 
     # Otherwise, exports the resulting file.
