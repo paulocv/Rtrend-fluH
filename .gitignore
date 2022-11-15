@@ -17,6 +17,9 @@
 
 # MCMC stuff
 !main_mcmc_rt
+!rt_mcmc/
+!rt_mcmc/*
+rt_mcmc/BKP_*
 
 # Important stuff and etc
 !.gitignore
