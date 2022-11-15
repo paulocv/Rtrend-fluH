@@ -1,0 +1,6 @@
+[submodule "toolbox_2"]
+	path = toolbox_2
+	url = https://github.com/paulocv/my_tools
+[submodule "toolbox"]
+	path = toolbox
+	url = https://github.com/paulocv/my_tools
