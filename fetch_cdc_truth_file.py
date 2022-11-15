@@ -60,7 +60,7 @@ def main():
     with open(OUT_FNAME, "w") as fp:
         fp.write(r.text)
 
-    # # # -()- Simple solution: use curl. Requires that it is installed, though.
+    # # # -()- Simple solution: use curl. This requires that it is installed, though.
     # os.system(f"curl {URL} -o \"{OUT_FNAME}\"")
 
     print("Completed!")

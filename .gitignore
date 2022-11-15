@@ -13,7 +13,7 @@
 !py_modules/*.py
 
 # Submodules
-!toolbox/
+# !toolbox/
 
 # MCMC stuff
 !main_mcmc_rt
