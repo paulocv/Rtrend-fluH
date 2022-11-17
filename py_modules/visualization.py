@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from run_forecast_states import CDC_QUANTILES_SEQ, NUM_QUANTILES
+from toolbox.plot_tools import make_axes_seq
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -136,6 +137,24 @@ def plot_forecasts_as_quantile_layers(ct_fore2d: np.ndarray, ax: mpl.axes.Axes, 
 # PLOT FUNCTIONS: For post processed data
 # ----------------------------------------------------------------------------------------------------------------------
 
+
+# Generic plot function for a whole single page
+def plot_page_generic(chunk_seq, plot_func, page_width=9., ncols=3, ax_height=3., plot_kwargs=None):
+    """
+    Signature of the callable:
+        plot_func(ax, item_from_chunk, i_ax, **plot_kwargs)
+    """
+    n_plots = len(chunk_seq)
+    plot_kwargs = dict() if plot_kwargs is None else plot_kwargs
+
+    fig, axes = make_axes_seq(n_plots, ncols, total_width=page_width, ax_height=ax_height)
+    plot_outs = list()
+
+    for i_ax, (ax, item) in enumerate(zip(axes, chunk_seq)):
+        plot_outs.append(plot_func(ax, item, i_ax, **plot_kwargs))
+
+    return fig, axes, plot_outs
+
 def plot_precalc_quantiles_as_layers(ax, quant_lines: np.ndarray, x_array, alpha=0.1, color="green"):
     """
     Plots a sequence of lines as transparent filled layers.
@@ -162,6 +181,9 @@ def plot_ct_past_and_fore(ax, fore_time_labels: pd.DatetimeIndex, weekly_quantil
                           state_name, i_ax=None, synth_name=None,
                           num_quantiles=None, ct_color="C0", insert_point=None):
     """Plot all data and configure ax for C(t) data of a single state."""
+
+    if not isinstance(fore_time_labels, pd.DatetimeIndex):  # Tries to convert into a pandas Index if not yet
+        fore_time_labels = pd.DatetimeIndex(fore_time_labels)
 
     if num_quantiles is None:
         num_quantiles = weekly_quantiles.shape[0]

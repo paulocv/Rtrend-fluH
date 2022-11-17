@@ -31,9 +31,11 @@ import py_modules.visualization as vis
 import py_modules.data_io as dio
 
 from py_modules.cdc_params import CDC_QUANTILES_SEQ, NUM_QUANTILES, NUM_STATES, NUM_WEEKS_FORE
+from py_modules.forecast_structs import CDCDataBunch, ForecastExecutionData, ForecastOutput, ForecastPost, \
+    USForecastPost
 from py_modules.utils import map_parallel_or_sequential
 from toolbox.file_tools import make_folder
-from toolbox.plot_tools import make_axes_seq
+# from toolbox.plot_tools import make_axes_seq
 
 
 WEEKLEN = interp.WEEKLEN
@@ -67,14 +69,14 @@ def main():
     # General
     nweeks_fore = NUM_WEEKS_FORE  # Number of weeks to forecast
     nsamples_us = 1000  # Number of C(t) samples to take from each state for building the US forecast.
-    # # First used values
-    # tg_params = dict(
+
+    # tg_params = dict(  # Mean 2.3, IQR 1.34 to 3.51
     #     shape=17.,
     #     rate=7.39,
     #     tmax=30,  # int
     # )
 
-    tg_params = dict(
+    tg_params = dict(  # Mean 3.0 IQR 1.4 to 5.1
         shape=10.,
         rate=10./3.,
         tmax=30,  # int
@@ -143,7 +145,7 @@ def main():
         print(10 * "#" + " EXPORT SWITCH IS OFF " + 10 * "#")
 
     print("Importing and preprocessing CDC data...")
-    cdc = load_cdc_data(cdc_data_fname)
+    cdc = dio.load_cdc_data(cdc_data_fname)
     preproc_dict, ct_cap_dict = preprocess_cdc_data(cdc, week_pres, week_roi_start, ct_cap_fac=ct_cap_fac)
     print("\n#################\n")
 
@@ -209,148 +211,6 @@ def main():
 # ----------------------------------------------------------------------------------------------------------------------
 # STRUCTS AND CLASSES
 # ----------------------------------------------------------------------------------------------------------------------
-
-
-class CDCDataBunch:
-
-    def __init__(self):
-        self.df: pd.DataFrame = None  # DataFrame with CDC data as read from the file.
-
-        self.num_locs = None  # Number of unique locations
-        self.loc_names = None  # List of unique location names
-        self.loc_ids = None  # List of location ids (as strings)
-        self.to_loc_id = None  # Conversion dictionary from location name to location id
-        self.to_loc_name = None  # Conversion dictionary from location id to location name
-
-        self.data_time_labels = None  # Array of dates present in the whole dataset.
-
-        # Preprocessing data (not set during loading)
-        self.day_roi_start: pd.Timestamp = None
-        self.day_pres: pd.Timestamp = None
-
-    def xs_state(self, state_name):
-        return self.df.xs(self.to_loc_id[state_name], level="location")
-
-
-class ForecastExecutionData:
-    """
-    Data for the handling of the forecast pipeline for a single state.
-    Handled inside the function forecast_state().
-    """
-
-    def __init__(self):
-        # Input parameters and data
-        self.state_name = None
-        self.state_series: pd.Series = None
-        self.nweeks_fore = None
-        self.except_params: dict = None
-        self.tg_params: dict = None
-        self.interp_params: dict = None
-        self.mcmc_params: dict = None
-        self.synth_params: dict = None
-        self.recons_params: dict = None
-        self.ct_cap = None
-
-        # Pipeline handling
-        self.stage = None   # Determines the forecast stage to be run in the next pipeline step. Written at debriefing.
-        self.method = None  # Determines the method to use in current stage. Written at briefing.
-        self.notes = None   # Debriefing notes to the briefing of the next stage. Written at debriefing.
-        self.stage_log = list()
-
-    def log_current_pipe_step(self):
-        """Writes current stage and method into the stage_log"""
-        self.stage_log.append((self.stage, self.method))
-
-
-class ForecastOutput:
-    """Contains data from forecasting process in one state: from interpolation to weekly reaggregation."""
-
-    def __init__(self):
-        self.day_0: pd.Timestamp = None  # First day to have report (7 days before the first stamp in ROI)
-        self.day_pres: pd.Timestamp = None  # Day of the current report.
-        self.ndays_roi = None
-        self.ndays_fore = None
-
-        # MCMC (and etc)
-        self.tg_dist: np.ndarray = None
-
-        # Interpolation results
-        self.t_daily: np.ndarray = None
-        self.past_daily_tlabels: pd.DatetimeIndex = None  # Daily time stamps for the ROI
-        # self.fore_daily_tlabels: pd.DatetimeIndex = None  # Daily time stamps for the forecast region
-        self.ct_past: np.ndarray = None
-        self.float_data_daily: np.ndarray = None  # Float data from the spline of the cumulative sum
-        self.daily_spline: UnivariateSpline = None
-
-        # MCMC
-        self.rtm: synth.McmcRtEnsemble = None
-
-        # Synthesis
-        self.synth_name = None
-        self.rt_fore2d: np.ndarray = None
-        self.num_ct_samples = None
-
-        # Reconstruction
-        self.ct_fore2d: np.ndarray = None
-        self.ct_fore2d_weekly: np.ndarray = None
-        # self.weekly_quantiles: np.ndarray = None
-
-
-class ForecastPost:
-    """
-    Contains post-processed data from the forecasting process in one state: the quantiles and other lightweight
-    arrays that are sent back to the main scope.
-    """
-    def __init__(self):
-        self.state_name = None
-        self.synth_name = None
-
-        # Forecasted data
-        self.quantile_seq = None  # Just CDC default sequence of quantiles
-        self.num_quantiles = None
-        self.weekly_quantiles: np.ndarray = None  # Forecasted quantiles | a[i_q, i_week]
-        self.samples_to_us: np.ndarray = None  # ct_fore_weekly samples to sum up the US series. | a[i_sample, i_week]
-
-        # Interpolation
-        self.t_daily: np.ndarray = None
-        self.ct_past: np.ndarray = None
-        self.float_data_daily: np.ndarray = None
-        self.daily_spline: UnivariateSpline = None
-
-        # MCMC past R(t) stats
-        self.rt_past_mean: np.ndarray = None
-        self.rt_past_median: np.ndarray = None
-        self.rt_past_loquant: np.ndarray = None
-        self.rt_past_hiquant: np.ndarray = None
-
-        # Synthesis forecast R(t) stats
-        self.rt_fore_median: np.ndarray = None
-        self.rt_fore_loquant: np.ndarray = None
-        self.rt_fore_hiquant: np.ndarray = None
-
-        # Time labels
-        self.day_0: pd.Timestamp = None     # First day of ROI.
-        self.day_pres: pd.Timestamp = None  # Day time stamp of present
-        self.day_fore: pd.Timestamp = None  # Last day forecasted
-        self.past_daily_tlabels: pd.DatetimeIndex = None  # Daily time stamps for the ROI
-        self.fore_daily_tlabels: pd.DatetimeIndex = None  # Daily time stamps for the forecast region
-        self.fore_time_labels: pd.DatetimeIndex = None  # Weekly time stamps for forecast region
-
-        # Misc
-        self.xt = None  # Just some counter for execution time
-
-
-class USForecastPost:
-    """Special post process object for the US time series."""
-
-    def __init__(self):
-        self.weekly_quantiles: np.ndarray = None  # Forecasted quantiles | a[i_q, i_week]
-        self.num_quantiles = None
-
-        self.day_0: pd.Timestamp = None     # First day of ROI.
-        self.day_pres: pd.Timestamp = None  # Day time stamp of present
-        self.day_fore: pd.Timestamp = None  # Last day forecasted
-        self.fore_time_labels: pd.DatetimeIndex = None
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -647,31 +507,6 @@ def calc_ct_fore_quantiles(ct_fore2d, quantiles_seq=None):
     return result
 
 
-def load_cdc_data(fname):
-
-    cdc = CDCDataBunch()
-
-    # Import
-    cdc.df = pd.read_csv(fname, index_col=(0, 1), parse_dates=["date"])
-    
-    # Extract unique names and their ids
-    cdc.loc_names = np.sort(cdc.df["location_name"].unique())  # Alphabetic order
-    cdc.num_locs = cdc.loc_names.shape[0]
-    cdc.loc_ids = cdc.df.index.levels[1].unique()
-
-    # Make location id / name conversion
-    cdc.to_loc_name = dict()  # Converts location id into name
-    cdc.to_loc_id = dict()  # Converts location name into id
-    for l_id in cdc.loc_ids:
-        name = cdc.df.xs(l_id, level=1).iloc[0]["location_name"]  # Get the name from the first id occurrence
-        cdc.to_loc_name[l_id] = name
-        cdc.to_loc_id[name] = l_id
-
-    cdc.data_time_labels = cdc.df.index.levels[0].unique().sort_values()
-
-    return cdc
-
-
 def preprocess_cdc_data(cdc: CDCDataBunch, week_pres, week_roi_start, ct_cap_fac=3):
     """
     Splits dataset by state, crop ROI.
@@ -805,22 +640,6 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
     content_chunks = [content_zip[axes_per_page * i: axes_per_page * (i+1)] for i in range(npages_states-1)]
     content_chunks.append(content_zip[-naxes_last:])
 
-    # Generic plot function for a whole single page
-    def plot_page_generic(chunk_seq, plot_func, page_width=9., ax_height=3., plot_kwargs=None):
-        """
-        Signature of the callable:
-            plot_func(ax, item_from_chunk, i_ax, **plot_kwargs)
-        """
-        n_plots = len(chunk_seq)
-        plot_kwargs = dict() if plot_kwargs is None else plot_kwargs
-
-        fig, axes = make_axes_seq(n_plots, ncols, total_width=page_width, ax_height=ax_height)
-        plot_outs = list()
-
-        for i_ax, (ax, item) in enumerate(zip(axes, chunk_seq)):
-            plot_outs.append(plot_func(ax, item, i_ax, **plot_kwargs))
-
-        return fig, axes, plot_outs
 
     # PLOTS - FORECAST C(t)
     # ------------------------------------------------------------------------------------------------------------------
@@ -842,7 +661,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
 
     def task(chunk):
-        return plot_page_generic(chunk, plot_table_forecast_ct)
+        return vis.plot_page_generic(chunk, plot_table_forecast_ct, ncols=ncols)
 
     print("Plotting forecasts...")
     results = map_parallel_or_sequential(task, content_chunks, ncpus=ncpus)  # Returns: [(fig, axes, plot_outs)]
@@ -891,7 +710,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
 
     def task(chunk):
-        return plot_page_generic(chunk, plot_table_interpolation)
+        return vis.plot_page_generic(chunk, plot_table_interpolation, ncols=ncols)
 
     print("\nPlotting interpolations...")
     results = map_parallel_or_sequential(task, content_chunks, ncpus=ncpus)  # Returns: [(fig, axes, plot_outs)]
@@ -930,7 +749,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
 
     def task(chunk):
-        return plot_page_generic(chunk, plot_table_rt)
+        return vis.plot_page_generic(chunk, plot_table_rt, ncols=ncols)
 
     print("\nPlotting R(t)...")
     results = map_parallel_or_sequential(task, content_chunks, ncpus=ncpus)  # Returns: [(fig, axes, plot_outs)]

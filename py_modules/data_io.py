@@ -12,11 +12,37 @@ from collections import OrderedDict
 
 from py_modules.cdc_params import CDC_QUANTILES_SEQ, NUM_QUANTILES, NUM_STATES, WEEKDAY_TGT, \
     NUM_OUTP_LINES, NUM_OUTP_LINES_WPOINTS
+from py_modules.forecast_structs import CDCDataBunch
+
+
+def load_cdc_data(fname):
+    cdc = CDCDataBunch()
+
+    # Import
+    cdc.df = pd.read_csv(fname, index_col=(0, 1), parse_dates=["date"])
+
+    # Extract unique names and their ids
+    cdc.loc_names = np.sort(cdc.df["location_name"].unique())  # Alphabetic order
+    cdc.num_locs = cdc.loc_names.shape[0]
+    cdc.loc_ids = cdc.df.index.levels[1].unique()
+
+    # Make location id / name conversion
+    cdc.to_loc_name = dict()  # Converts location id into name
+    cdc.to_loc_id = dict()  # Converts location name into id
+    for l_id in cdc.loc_ids:
+        name = cdc.df.xs(l_id, level=1).iloc[0]["location_name"]  # Get the name from the first id occurrence
+        cdc.to_loc_name[l_id] = name
+        cdc.to_loc_id[name] = l_id
+
+    cdc.data_time_labels = cdc.df.index.levels[0].unique().sort_values()
+
+    return cdc
 
 
 def export_forecast_cdc(fname, post_list, us, cdc, nweeks_fore, use_as_point=None,
                         add_week_to_labels=False):
-    """Data is not assumed to strictly follow the CDC guidelines (all locations and quantiles),
+    """
+    Data is not assumed to strictly follow the CDC guidelines (all locations and quantiles),
     but warnings are thrown for irregular data.
     """
 
@@ -143,6 +169,14 @@ def export_forecast_cdc(fname, post_list, us, cdc, nweeks_fore, use_as_point=Non
     print(out_df)
 
     out_df.to_csv(fname, index=False)
+
+
+def load_forecast_cdc(fname):
+    """Import forecast file in the CDC format, possibly created with 'export_forecast_cdc()'. """
+
+    df = pd.read_csv(fname, header=0, parse_dates=["forecast_date", "target_end_date"])
+
+    return df
 
 
 def make_state_arrays(weekly_quantiles, state_id, num_quantiles, nweeks_fore):
