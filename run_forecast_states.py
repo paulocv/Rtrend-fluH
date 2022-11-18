@@ -1,14 +1,15 @@
 """
 Load CDC data, run forecast for each state, export results and reports.
 
-For the first version, this script was made in a hurry.
-
 loc == state
 
 ROI = region of interest: ideally, comprises the current outbreak since its "beginning".
 ndays_past = Used only for the R(t) synthesis: number of days in the past to consider.
 
 pres = present = Day of the last CDC report.
+
+Author: Paulo Cesar Ventura (https://github.com/paulocv, https://paulocv.netlify.app)
+On behalf of: CEPH Lab @ Indiana University (https://github.com/CEPH-Lab)
 """
 import copy
 import os
