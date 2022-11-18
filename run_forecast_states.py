@@ -1,14 +1,15 @@
 """
 Load CDC data, run forecast for each state, export results and reports.
 
-For the first version, this script was made in a hurry.
-
 loc == state
 
 ROI = region of interest: ideally, comprises the current outbreak since its "beginning".
 ndays_past = Used only for the R(t) synthesis: number of days in the past to consider.
 
 pres = present = Day of the last CDC report.
+
+Author: Paulo Cesar Ventura (https://github.com/paulocv, https://paulocv.netlify.app)
+On behalf of: CEPH Lab @ Indiana University (https://github.com/CEPH-Lab)
 """
 import copy
 import os
@@ -25,15 +26,15 @@ from matplotlib.backends.backend_pdf import PdfPages
 # from pathos.multiprocessing import ProcessPool
 from scipy.interpolate import UnivariateSpline
 
-import py_modules.interpolate as interp
-import py_modules.synthesis as synth
-import py_modules.visualization as vis
-import py_modules.data_io as dio
+import rtrend_tools.interpolate as interp
+import rtrend_tools.synthesis as synth
+import rtrend_tools.visualization as vis
+import rtrend_tools.data_io as dio
 
-from py_modules.cdc_params import CDC_QUANTILES_SEQ, NUM_QUANTILES, NUM_STATES, NUM_WEEKS_FORE
-from py_modules.forecast_structs import CDCDataBunch, ForecastExecutionData, ForecastOutput, ForecastPost, \
+from rtrend_tools.cdc_params import CDC_QUANTILES_SEQ, NUM_QUANTILES, NUM_STATES, NUM_WEEKS_FORE
+from rtrend_tools.forecast_structs import CDCDataBunch, ForecastExecutionData, ForecastOutput, ForecastPost, \
     USForecastPost
-from py_modules.utils import map_parallel_or_sequential
+from rtrend_tools.utils import map_parallel_or_sequential
 from toolbox.file_tools import make_folder
 # from toolbox.plot_tools import make_axes_seq
 

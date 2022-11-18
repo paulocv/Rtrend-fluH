@@ -15,11 +15,11 @@ import sys
 from colorama import Fore, Back, Style
 from datetime import datetime, timedelta
 
-import py_modules.data_io as dio
-import py_modules.visualization as vis
+import rtrend_tools.data_io as dio
+import rtrend_tools.visualization as vis
 
-from py_modules.cdc_params import WEEKDAY_TGT, NUM_WEEKS_FORE, REF_DEADLINE, CDC_QUANTILES_SEQ, NUM_QUANTILES
-from py_modules.forecast_structs import CDCDataBunch
+from rtrend_tools.cdc_params import WEEKDAY_TGT, NUM_WEEKS_FORE, REF_DEADLINE, CDC_QUANTILES_SEQ, NUM_QUANTILES
+from rtrend_tools.forecast_structs import CDCDataBunch
 from toolbox.plot_tools import make_axes_seq
 
 
