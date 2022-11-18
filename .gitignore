@@ -9,8 +9,8 @@
 
 # Main python scripts
 !*.py
-!py_modules/
-!py_modules/*.py
+!rtrend_tools/
+!rtrend_tools/*.py
 
 # Submodules
 !toolbox/

@@ -10,9 +10,9 @@ import warnings
 
 from collections import OrderedDict
 
-from py_modules.cdc_params import CDC_QUANTILES_SEQ, NUM_QUANTILES, NUM_STATES, WEEKDAY_TGT, \
+from rtrend_tools.cdc_params import CDC_QUANTILES_SEQ, NUM_QUANTILES, NUM_STATES, WEEKDAY_TGT, \
     NUM_OUTP_LINES, NUM_OUTP_LINES_WPOINTS
-from py_modules.forecast_structs import CDCDataBunch
+from rtrend_tools.forecast_structs import CDCDataBunch
 
 
 def load_cdc_data(fname):

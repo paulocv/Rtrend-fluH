@@ -10,7 +10,7 @@ import scipy.optimize
 import scipy.stats
 import warnings
 
-from py_modules.rt_estimation import McmcRtEnsemble
+from rtrend_tools.rt_estimation import McmcRtEnsemble
 
 
 # ----------------------------------------------------------------------------------------------------------------------

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import UnivariateSpline
 
-import py_modules.synthesis as synth
+import rtrend_tools.synthesis as synth
 
 
 class CDCDataBunch:
