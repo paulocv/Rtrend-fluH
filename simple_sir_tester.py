@@ -2,7 +2,7 @@
 Performs a simple SIR model with delays and reporting rates in postprocess. Meant for proof of concept.
 
 Notes
-------------
+--------
 i_step = represents an epidemic iteration. i_step = 0 is the first iteration/update.
 exd.i_t = represents a time stamp. i_t = 0 represents moment zero, before any update.
 """
