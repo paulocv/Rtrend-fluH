@@ -171,6 +171,11 @@ def make_plots_for_all(cdc: CDCDataBunch, fore_df: pd.DataFrame, nweeks_past=6,
     fig.savefig(plot_fname)
     print(f"Plots done. Check file '{plot_fname}'.")
 
+    # # Prompt to open the file
+    # input()
+    # print("Hello")
+    # print("World")
+
     return fig, axes
 
 
