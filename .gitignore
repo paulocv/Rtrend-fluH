@@ -22,9 +22,13 @@
 !rt_mcmc/*
 rt_mcmc/BKP_*
 
+# Documentation
+!docs/
+
 # Important stuff and etc
 !.gitignore
 !LICENSE
+!README.md
 
 
 # ----------------------------------
