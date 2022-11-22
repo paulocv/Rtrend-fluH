@@ -64,7 +64,7 @@ def main():
 
     # -()- Current season
     week_pres = -1  # Last week
-    week_roi_start = week_pres -5  # pd.Timestamp("2022-08-29")
+    week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
     # General
@@ -109,6 +109,12 @@ def main():
         k_start=0.95,   # Ramp method: starting coefficient
         k_end=0.85,      # Ramp method: ending coefficient
 
+        # Dynamic ramp
+        r1_start=1.0,
+        r2_start=1.50,
+        r1_end=0.80,   # R_new Value to which R = 1 is converted
+        r2_end=1.04,    # R_new Value to which R = 2 is converted
+
         # Rtop ramp extra params
         rmean_top=1.40,  # (Obs: Starting value, but it is decreased at each pass, including the first)
         max_width=0.15,
@@ -123,10 +129,13 @@ def main():
     # C(t) reconstruction
     recons_params = dict(seed=2)
 
-    cdc_data_fname = "hosp_data/truth-Incident Hospitalizations.csv"
-    cdc_out_fname = "forecast_out/latest.csv"
+    # --- Misc
+    post_weekly_coefs = np.ones(nweeks_fore, dtype=float)  # Postprocess weekly multiplicative coefficient
+    post_weekly_coefs[0] = 0.6  # Thanksgiving underreporting effect
 
     # --- Program parameters
+    cdc_data_fname = "hosp_data/truth-Incident Hospitalizations.csv"
+    cdc_out_fname = "forecast_out/latest.csv"
     do_export = True
     do_show_plots = False
     write_synth_names = True
@@ -146,7 +155,7 @@ def main():
         print(10 * "#" + " EXPORT SWITCH IS OFF " + 10 * "#")
 
     print("Importing and preprocessing CDC data...")
-    cdc = dio.load_cdc_data(cdc_data_fname)
+    cdc = dio.load_cdc_truth_data(cdc_data_fname)
     preproc_dict, ct_cap_dict = preprocess_cdc_data(cdc, week_pres, week_roi_start, ct_cap_fac=ct_cap_fac)
     print("\n#################\n")
 
@@ -181,7 +190,8 @@ def main():
         print(f"   [{state_name}] Forecast done with {fc.num_ct_samples} c(t) samples.")
 
         # POSTPROCESS COMMAND
-        return postprocess_state_forecast(fc, state_name, i_s, cdc, nweeks_fore, nsamples_us)
+        return postprocess_state_forecast(fc, state_name, i_s, cdc, nweeks_fore, nsamples_us,
+                                          post_coefs=post_weekly_coefs)
 
     # RUN LINE - PARALLEL OR SEQUENCE
     result_list = map_parallel_or_sequential(task, enumerate(cdc.loc_names), ncpus=ncpus)
@@ -191,7 +201,7 @@ def main():
 
     # --- Construct the total US time series
     print("-------------- Starting for US ")
-    us_post = postprocess_us(result_list, cdc, nweeks_fore, nsamples_us)
+    us_post = postprocess_us(result_list, cdc, nweeks_fore, nsamples_us, post_coefs=post_weekly_coefs)
     print(f"\t[US] Done ({nsamples_us} c(t) samples).")
 
     # VISUALIZATION and EXPORT
@@ -210,8 +220,51 @@ def main():
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# STRUCTS AND CLASSES
+# PREPROCESSING
 # ----------------------------------------------------------------------------------------------------------------------
+
+
+def preprocess_cdc_data(cdc: CDCDataBunch, week_pres, week_roi_start, ct_cap_fac=3):
+    """
+    Splits dataset by state, crop ROI.
+    FOR NOW, returns only a dict with the cropped ROI (with time stamps as index).
+    """
+
+    # Argument handling
+    # -----------------
+    if isinstance(week_pres, int):
+        week_pres = cdc.data_time_labels[week_pres]
+
+    if isinstance(week_roi_start, int):
+        week_roi_start = cdc.data_time_labels[week_roi_start]
+
+    if week_roi_start >= week_pres:
+        raise ValueError(f"Hey, ROI start {week_roi_start.date()} must be prior to present week {week_pres.date()}.")
+
+    print(f"Past ROI: from {week_roi_start.date()} to {week_pres.date()}")
+    cdc.day_roi_start = week_roi_start
+    cdc.day_pres = week_pres
+
+    # Preprocessing
+    # -------------
+    res_dict = dict()
+    ct_cap_dict = dict()
+
+    for state_name in cdc.loc_names:
+        state_df = cdc.df.xs(cdc.to_loc_id[state_name], level="location")
+
+        # Set cap based on maximum historical data (whole tseries, not just ROI).
+        ct_cap_dict[state_name] = ct_cap_fac * state_df["value"].max()
+
+        roi_df = state_df.loc[week_roi_start:week_pres]["value"]
+
+        # Check for problems
+        if roi_df.shape[0] == 0:
+            sys.stderr.write(f"\nHEY, empty dataset for state {state_name} in ROI.\n")
+
+        res_dict[state_name] = roi_df
+
+    return res_dict, ct_cap_dict
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -327,11 +380,11 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
             exd.synth_params["center"] = 0.8
             exd.synth_params["sigma"] = 0.02
 
-    elif exd.notes == "NONE" and sum_roi > 1200:        # --- Large numbers: increase width of the sample
+    elif exd.notes == "NONE" and sum_roi > 1200:        # --- Large numbers: could increase width of the sample
         # exd.synth_params["q_low"] = 0.30
         # exd.synth_params["q_hig"] = 0.70
-        synth_method = synth.sorted_bent_mean_ensemble
-        fc.synth_name = exd.method = "static_ramp_highc"
+        synth_method = synth.sorted_dynamic_ramp
+        fc.synth_name = exd.method = "dynamic_ramp_highc"
 
     elif exd.notes == "NONE":  # DEFAULT CONDITION, does not fall in any of the previous
         # # -()- Static ramp
@@ -363,17 +416,17 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
     # Apply the method
     fc.rt_fore2d = synth_method(fc.rtm, fc.ct_past, fc.ndays_fore, **exd.synth_params)
 
-    # if exd.state_name in special_states_01:
-    # # if fc.synth_name == "rnd_normal_special":
-    #     # Apply extra ramp to the normal samples
-    #     fc.rt_fore2d = synth.apply_ramp_to(fc.rt_fore2d, 1.0, 0.98, fc.ndays_fore)
-
     if fc.rt_fore2d.shape[0] == 0:  # Problem: no R value satisfied the filter criterion
-        # Action: repeat the synth right away
-        fc.synth_name = exd.method = "rnd_normal"
-        exd.log_current_pipe_step()
+        # -()- Do a normal
+        # # Action: repeat the synth right away
+        # fc.synth_name = exd.method = "rnd_normal"
+        # exd.log_current_pipe_step()
+        #
+        # fc.rt_fore2d = synth.random_normal_synth(fc.rtm, fc.ct_past, fc.ndays_fore, **exd.synth_params)
 
-        fc.rt_fore2d = synth.random_normal_synth(fc.rtm, fc.ct_past, fc.ndays_fore, **exd.synth_params)
+        # -()-
+        exd.stage, exd.notes = "r_synth", "use_static_ramp_rtop"
+        return
 
     # Debriefing
     # ---------------------------
@@ -496,63 +549,13 @@ def forecast_state(state_name: str, state_series: pd.Series, nweeks_fore, except
     return fc
 
 
-def calc_ct_fore_quantiles(ct_fore2d, quantiles_seq=None):
-    if quantiles_seq is None:
-        quantiles_seq = CDC_QUANTILES_SEQ
-
-    result = np.empty((quantiles_seq.shape[0], ct_fore2d.shape[1]), dtype=float)
-
-    for i_q, q in enumerate(quantiles_seq):  # OBS: q can be an array, so there may be a vectorized alternative.
-        np.quantile(ct_fore2d, q, axis=0, out=result[i_q, :])
-
-    return result
-
-
-def preprocess_cdc_data(cdc: CDCDataBunch, week_pres, week_roi_start, ct_cap_fac=3):
-    """
-    Splits dataset by state, crop ROI.
-    FOR NOW, returns only a dict with the cropped ROI (with time stamps as index).
-    """
-
-    # Argument handling
-    # -----------------
-    if isinstance(week_pres, int):
-        week_pres = cdc.data_time_labels[week_pres]
-
-    if isinstance(week_roi_start, int):
-        week_roi_start = cdc.data_time_labels[week_roi_start]
-
-    if week_roi_start >= week_pres:
-        raise ValueError(f"Hey, ROI start {week_roi_start.date()} must be prior to present week {week_pres.date()}.")
-
-    print(f"Past ROI: from {week_roi_start.date()} to {week_pres.date()}")
-    cdc.day_roi_start = week_roi_start
-    cdc.day_pres = week_pres
-
-    # Preprocessing
-    # -------------
-    res_dict = dict()
-    ct_cap_dict = dict()
-
-    for state_name in cdc.loc_names:
-        state_df = cdc.df.xs(cdc.to_loc_id[state_name], level="location")
-
-        # Set cap based on maximum historical data (whole tseries, not just ROI).
-        ct_cap_dict[state_name] = ct_cap_fac * state_df["value"].max()
-
-        roi_df = state_df.loc[week_roi_start:week_pres]["value"]
-
-        # Check for problems
-        if roi_df.shape[0] == 0:
-            sys.stderr.write(f"\nHEY, empty dataset for state {state_name} in ROI.\n")
-
-        res_dict[state_name] = roi_df
-
-    return res_dict, ct_cap_dict
+# ----------------------------------------------------------------------------------------------------------------------
+# POSTPROCESSING
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 def postprocess_state_forecast(fc: ForecastOutput, state_name, i_s, cdc: CDCDataBunch, nweeks_fore,
-                               nsamples_us):
+                               nsamples_us, post_coefs: np.ndarray=None):
     """
     Prepare data for final aggregation and for plot reports.
     Returns a ForecastPost object, which is lightweight and can be returned from the forecast loop to the main scope.
@@ -565,7 +568,9 @@ def postprocess_state_forecast(fc: ForecastOutput, state_name, i_s, cdc: CDCData
     # Forecast data statistics
     post.quantile_seq = CDC_QUANTILES_SEQ
     post.num_quantiles = NUM_QUANTILES
-    post.weekly_quantiles = calc_ct_fore_quantiles(fc.ct_fore2d_weekly)
+    post.weekly_quantiles = synth.calc_tseries_ensemble_quantiles(fc.ct_fore2d_weekly)
+    if post_coefs is not None:  # Apply post-coefficient for each week, if informed
+        post.weekly_quantiles *= post_coefs
     post.num_ct_samples = fc.ct_fore2d_weekly.shape[0]
 
     # Interpolation
@@ -598,7 +603,7 @@ def postprocess_state_forecast(fc: ForecastOutput, state_name, i_s, cdc: CDCData
     return post
 
 
-def postprocess_us(fc_list: list[ForecastPost], cdc: CDCDataBunch, nweeks_fore, nsamples_us):
+def postprocess_us(fc_list: list[ForecastPost], cdc: CDCDataBunch, nweeks_fore, nsamples_us, post_coefs=None):
 
     post = USForecastPost()
 
@@ -611,7 +616,9 @@ def postprocess_us(fc_list: list[ForecastPost], cdc: CDCDataBunch, nweeks_fore, 
 
     # Perform the sum of samples from each state
     ct_fore2d_weekly = sum(post_.samples_to_us for post_ in fc_list if post_ is not None)
-    post.weekly_quantiles = calc_ct_fore_quantiles(ct_fore2d_weekly)
+    post.weekly_quantiles = synth.calc_tseries_ensemble_quantiles(ct_fore2d_weekly)
+    if post_coefs is not None:  # Apply post-coefficient for each week, if informed
+        post.weekly_quantiles *= post_coefs
     post.num_quantiles = post.weekly_quantiles.shape[0]
 
     return post
@@ -641,7 +648,6 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
     content_chunks = [content_zip[axes_per_page * i: axes_per_page * (i+1)] for i in range(npages_states-1)]
     content_chunks.append(content_zip[-naxes_last:])
 
-
     # PLOTS - FORECAST C(t)
     # ------------------------------------------------------------------------------------------------------------------
 
@@ -649,9 +655,8 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         post, state_name = item  # Unpack content tuple
 
         # Contents
-        ct_past: pd.Series = preproc_dict[state_name]
-        last_val = ct_past.iloc[-1]
         factual_ct = cdc.xs_state(state_name).loc[post.day_0:post.day_fore]["value"]
+        last_val = factual_ct.iloc[-1]
         ct_color = "C1" if post.day_pres < cdc.data_time_labels[-1] else "C0"  # C1 if there's a future week available
 
         # Plot function

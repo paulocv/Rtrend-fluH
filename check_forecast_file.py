@@ -57,7 +57,7 @@ def import_data(hosp_fname="hosp_data/truth-Incident Hospitalizations.csv"):
 
     # --- Read each file
     print("Reading files...")
-    cdc: CDCDataBunch = dio.load_cdc_data(hosp_fname)
+    cdc: CDCDataBunch = dio.load_cdc_truth_data(hosp_fname)
     fore_df: pd.DataFrame = dio.load_forecast_cdc(fore_fname)
 
     return cdc, fore_df
