@@ -8,7 +8,7 @@ import os
 import subprocess
 # import tempfile
 
-from rtrend_tools.scripting import NEW_SECTION, ENV_NAME, ENV_FLEX_PATH, MCMC_BIN, prompt_yn
+from rtrend_tools.scripting import NEW_SECTION, ENV_NAME, ENV_FLEX_PATH, MCMC_BIN, prompt_yn, conda_env_exists
 
 
 def main():
@@ -17,9 +17,7 @@ def main():
     print("CONFIGURING THE PYTHON ENVIRONMENT\n")
 
     # Check if the evironment exists
-    proc = subprocess.run("conda env list --json".split(), capture_output=True)
-    env_list = json.loads(proc.stdout)["envs"]
-    env_exists = ENV_NAME in [os.path.basename(env) for env in env_list]
+    env_exists = conda_env_exists(ENV_NAME)
 
     # --- Take action
     if env_exists:
@@ -49,9 +47,7 @@ def main():
             return
 
     # Check the evironment again
-    proc = subprocess.run("conda env list --json".split(), capture_output=True)
-    env_list = json.loads(proc.stdout)["envs"]
-    env_exists = ENV_NAME in [os.path.basename(env) for env in env_list]
+    env_exists = conda_env_exists(ENV_NAME)
 
     if not env_exists:
         print("Oops, I could not find the environment. :(")
