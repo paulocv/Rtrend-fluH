@@ -8,8 +8,6 @@ from rtrend_tools.scripting import NEW_SECTION, ENV_NAME, ENV_FLEX_PATH, MCMC_BI
 
 def main():
     """
-    
-
     - Pull changes
     - Check and compare environment
     - Recompile MCMC
@@ -17,12 +15,13 @@ def main():
     - Fetch new truth data from CDC
 
     """
+    git_pull_all_changes()
 
 
 def git_pull_all_changes():
     """This discards local changes and pull updates from the main remote branch."""
     print(NEW_SECTION)
-    print("UPDATING THE LOCAL REPOSITORY")
+    print("UPDATING THE LOCAL REPOSITORY\n")
 
     # --- Optionally reset local changes.
     answer = prompt_yn("Would you like to reset local changes before pulling from the remote repository? You may need "
