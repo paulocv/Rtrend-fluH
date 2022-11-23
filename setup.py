@@ -8,10 +8,7 @@ import os
 import subprocess
 # import tempfile
 
-NEW_SECTION = "\n" + 20 * "-"
-ENV_NAME = "rtrend_forecast"
-ENV_FLEX_PATH = "rtrend_tools/envs/latest.yml"
-MCMC_BIN = "main_mcmc_rt"
+from rtrend_tools.scripting import NEW_SECTION, ENV_NAME, ENV_FLEX_PATH, MCMC_BIN, prompt_yn
 
 
 def main():
