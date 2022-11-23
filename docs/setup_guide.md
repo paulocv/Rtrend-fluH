@@ -3,6 +3,8 @@
 This document guides trough the process to setup the Rtrend FluH on your computer, including its dependencies. 
 This process is tested for on MacOS. 
 
+Steps 1 and 2 require some installation and manual configuration. Once you reach Step 3, the repo will be downloaded, so it should be a matter of running the right scripts in the right order.
+
 ## Prerequisites
 
 ### Pre 1: Conda package manager (python & etc)
@@ -46,9 +48,6 @@ GitHub CLI is a tool to use GitHub from the command line. Both git and GitHub CL
     * When prompted for your preferred protocol for Git operations, select HTTPS.
     * When asked if you would like to authenticate to Git with your GitHub credentials, enter Y.
 
-
-
-
     
 ### Step 2: Clone the Rtrend repository (with submodules)
 
@@ -59,5 +58,20 @@ GitHub CLI is a tool to use GitHub from the command line. Both git and GitHub CL
     ```
     In the above example, the Rtrend project will be created in a subfolder of the directory named `where_i_want`.
 
-* 2.2: 
+* 2.2: Clone the repository with its submodules. Type:
+    ```
+    git clone  --recurse-submodules https://github.com/paulocv/Rtrend-fluH
+    ```
+    This will download the contents of this repository into the `Rtrend-fluH` folder. Conveniently, it will also configure it as a git repository, connecting it to the remote (GitHub repo) and downloading its submodules. For this reason, cloning with git is preferred over just downloading the repository from GitHub as a .zip.
+
+* 2.3: Enter the project directory. Type:
+    ```
+    cd Rtrend-fluH 
+    ```
+
+
+### Step 3: Run the `setup.py` script to complete the installation
+
+Ok, there's still a lot to do yet, but from now on the scripts should do most of the hard work.
+
 
