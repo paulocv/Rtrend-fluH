@@ -24,6 +24,7 @@ rt_mcmc/BKP_*
 
 # Documentation
 !docs/
+!docs/*.md
 
 # Important stuff and etc
 !.gitignore
