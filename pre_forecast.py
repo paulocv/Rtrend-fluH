@@ -1,4 +1,4 @@
-
+import json
 import os
 import subprocess
 import sys
@@ -9,13 +9,13 @@ from rtrend_tools.scripting import NEW_SECTION, ENV_NAME, ENV_FLEX_PATH, MCMC_BI
 def main():
     """
     - v Pull changes
-    - Check and compare environment
+    - v Check and compare environment
     - Recompile MCMC
     - BKP truth data
     - Fetch new truth data from CDC
 
     """
-    git_pull_all_changes()
+    # git_pull_all_changes()
     check_and_compare_environment()
 
 
@@ -49,7 +49,9 @@ def git_pull_all_changes():
 
 
 def check_and_compare_environment():
-    """Will check the status of the project's conda environment. Update it if needed, then activate it with source."""
+    """
+    Will check the status of the project's conda environment.
+    """
     print(NEW_SECTION)
     print("CHECKING FOR ENVIRONMENT UPDATES\n")
 
@@ -60,10 +62,34 @@ def check_and_compare_environment():
         print("Quitting now...")
         sys.exit(1)
 
-    # --- Check for differences
+    # --- Check that it's active
+    out = subprocess.run("conda info --json".split(), capture_output=True)
+    conda_info = json.loads(out.stdout)
+    active_env = conda_info["active_prefix_name"]
 
+    if active_env != ENV_NAME:
+        print(f"Hey, currently active conda environment ({active_env}) is not the expected one ({ENV_NAME}).")
+        print("Please run 'source activate_env.sh' first, then rerun this script.")
+        print("Quitting now...")
+        sys.exit(1)
 
+    print(f"Environment {ENV_NAME} is active.")
 
+    # --- Compare with latest environment file
+    try:
+        out = subprocess.run(f"conda compare --json {ENV_FLEX_PATH}".split(), capture_output=True)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
+
+    compare_msg = json.loads(out.stdout)[0]
+
+    if "Success" in compare_msg:  # Only way I could find to check the results of the comparison...
+        print("Environment is up-to-date with the yml file. No updates required.")
+    else:
+        print("Looks like there are changes to be done in the environment. Let update the packages with conda.")
+        print("THIS CAN TAKE SOME TIME, sit down and relax...")
+
+        os.system(f"conda env update --file {ENV_FLEX_PATH} --prune")
 
 
 if __name__ == "__main__":
