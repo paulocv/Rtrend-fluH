@@ -58,15 +58,18 @@ def git_pull_all_changes():
     try:
         subprocess.run("git pull --recurse-submodules origin main".split(), check=True)
     except subprocess.CalledProcessError:
+        print(Fore.RED + "\nThere was an error with the project updates. \nQuitting now..." + Style.RESET_ALL)
         sys.exit(1)
 
-    print("\nApparently, all set here.")
+    print(Fore.GREEN + "\nAll set with the project updates!" + Style.RESET_ALL)
 
 
 def check_and_compare_environment():
     """
     Will check the status of the project's conda environment.
     """
+    num_problems = 0
+
     print(NEW_SECTION)
     print("CHECKING FOR ENVIRONMENT UPDATES\n")
 
@@ -105,7 +108,18 @@ def check_and_compare_environment():
         print("Looks like there are changes to be done in the environment. Let update the packages with conda.")
         print("THIS CAN TAKE SOME TIME, sit down and relax...")
 
-        os.system(f"conda env update --file {ENV_FLEX_PATH} --prune")
+        code = os.system(f"conda env update --file {ENV_FLEX_PATH} --prune")
+
+        if code:
+            print(Fore.YELLOW + "Problem while running the conda update.\n"
+                                f"Error code = {code}" + Style.RESET_ALL)
+            num_problems += 1
+
+    # --- Final feedback about problems in the script
+    if num_problems:
+        print(Fore.YELLOW + "\nThere were problems." + Style.RESET_ALL)
+    else:
+        print(Fore.GREEN + "\nAll set with the virtual environment!" + Style.RESET_ALL)
 
 
 def recompile_mcmc_code():
@@ -163,7 +177,7 @@ def bkp_and_fetch_truth_data():
         fp.write(response.text)
     print(f"The new data from CDC was saved as {FLU_TRUTH_DATA_FILE}")
 
-    print(Fore.GREEN + "\nApparently, all set here!" + Style.RESET_ALL)
+    print(Fore.GREEN + "\nAll set with the truth data file!" + Style.RESET_ALL)
 
 
 def _backup_truth_file_if_needed(last_time_label):
