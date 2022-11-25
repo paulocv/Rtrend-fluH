@@ -18,7 +18,8 @@ from datetime import datetime, timedelta
 import rtrend_tools.data_io as dio
 import rtrend_tools.visualization as vis
 
-from rtrend_tools.cdc_params import WEEKDAY_TGT, NUM_WEEKS_FORE, REF_DEADLINE, CDC_QUANTILES_SEQ, NUM_QUANTILES
+from rtrend_tools.cdc_params import WEEKDAY_TGT, NUM_WEEKS_FORE, REF_DEADLINE, CDC_QUANTILES_SEQ, NUM_QUANTILES, \
+    get_next_flu_deadline_from
 from rtrend_tools.forecast_structs import CDCDataBunch
 from toolbox.plot_tools import make_axes_seq
 
@@ -77,9 +78,8 @@ def check_forecast_data(cdc, fore_df):
     first_target_day = pd.to_datetime(dates.min()).date()
 
     # Get datetime stamps for today (now), next deadline and next forecast target date.
-    now = datetime.today() # - timedelta(weeks=1)
-    delta = (now - REF_DEADLINE) % timedelta(weeks=1)  # Time past the last deadline
-    next_deadline = now - delta + timedelta(weeks=1)
+    now = datetime.today()  # - timedelta(weeks=1)
+    next_deadline = get_next_flu_deadline_from(now)
     expected_target_day = next_deadline.date() + timedelta(days=(WEEKDAY_TGT - next_deadline.weekday()) % 7)
     #   ^ Get the next Saturday (WEEKDAY_TGT) after next deadline.
 
