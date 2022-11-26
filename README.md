@@ -1,6 +1,13 @@
 # Rtrend Forecasting Method
 
 
+## Setup and usage 
+
+Given that the FluH code and parameters are constantly updated, it is recommended to download and keep the code using Git as the Version Control System. A complete guide is available here: 
+
+- [Setup Guide](./docs/setup_guide.md)
+
+
 ## Implementation details
 
 ### Preprocessing

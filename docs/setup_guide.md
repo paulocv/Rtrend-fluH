@@ -1,7 +1,7 @@
 # Setup guide for Rtrend FluH model
 
 This document guides trough the process to setup the Rtrend FluH on your computer, including its dependencies. 
-This process is tested for on MacOS. 
+This process is tested for MacOS with Apple Silicon.
 
 Steps 1 and 2 require some installation and manual configuration. Once you reach Step 3, the repo will be downloaded, so it should be a matter of running the right scripts in the right order.
 
@@ -72,6 +72,22 @@ GitHub CLI is a tool to use GitHub from the command line. Both git and GitHub CL
 
 ### Step 3: Run the `setup.py` script to complete the installation
 
-Ok, there's still a lot to do yet, but from now on the scripts should do most of the hard work.
+There's still a lot that must be done, but now the scripts should take care of the heavy work.
 
+In the same terminal, type: 
+```
+python setup.py
+```
 
+This script exerts two main tasks:
+
+* Create a Conda virtual environment;
+* Give execution permission to scripts and executables.
+
+A virtual environment is a safe way to use Python libraries in an isolated space, where changes to these libraries and environment variables do not affect the base scope. 
+
+The script will prompt to create a virtual environment using Conda. Unless you plan to do this manually, type "y" to proceed. Conda may take anywhere from a few seconds to minutes to initialize, then it will prompt you before downloading Python packages. Once again, enter "y" and wait for the process.
+
+If there is a problem with the environment creation, the `setup.py` script will continue, but the required python libraries may not be installed yet.
+
+Finally, the script gives execution permission to some scripts that will be used later on. No action is required in this step.
