@@ -12,6 +12,9 @@
 !rtrend_tools/
 !rtrend_tools/*.py
 
+# Sh scripts
+!activate_env.sh
+
 # Submodules
 !toolbox/
 !toolbox/*
