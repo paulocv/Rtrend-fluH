@@ -3,6 +3,7 @@ Performs steps to set up and install all the tools required to run the forecast.
 * Locally log in to a GitHub account that has access to the private Rtrend repository.
 """
 
+import glob
 import json
 import os
 import subprocess
@@ -43,8 +44,8 @@ def main():
             print(f"- Run 'conda env create -f {ENV_FLEX_PATH}'. Then run setup.py again.")
             print(f"- If that fails, check if {ENV_FLEX_PATH} exists. It could have been renamed or moved...")
             print(f"- If that fails, create the environment manually. Required packages are listed in the docs.")
-            print("\nQuitting now...")
-            return
+            # print("\nQuitting now...")
+            # return
 
     # Check the evironment again
     env_exists = conda_env_exists(ENV_NAME)
@@ -53,12 +54,14 @@ def main():
         print("Oops, I could not find the environment. :(")
         print("If you aborted the installation, just run setup.py again. Otherwise, please try to find the problem and"
               " try running setup again.")
-        print("Quitting now...")
-        return
+
+        print("(The script will proceed, but there may be problems if this is not fixed.)")
+
+        # print("Quitting now...")
+        # return
 
     # ------------------------------------------------------------------------------------------------------------------
     # from colorama import Fore, Back, Style
-    import glob
     print(NEW_SECTION)
     print("GIVING EXECUTION PERMISSION TO OTHER SCRIPTS\n")
     # print(Fore.CYAN + "Ps: now we can use colors, yay!!" + Style.RESET_ALL)
@@ -71,17 +74,6 @@ def main():
         cmd = f"chmod +x '{ex}'"
         print(cmd)
         os.system(cmd)  # Mmmmh, there's os.chmod, but it's numeric only, and Unix-only anyway.
-
-
-def prompt_yn(msg):
-    answer = input(msg + " (y/n)")
-    while True:
-        if answer.lower() == "y":
-            return True
-        elif answer.lower() == "n":
-            return False
-        else:
-            answer = input("Please answer \"y\" or \"n\"")
 
 
 if __name__ == "__main__":
