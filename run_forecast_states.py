@@ -102,8 +102,8 @@ def main():
     # R(t) Synthesis
     synth_params = dict(
         # Ramp params
-        q_low=0.40,    # Sorted ensemble: low quantile
-        q_hig=0.60,    # Sorted ensemble: high quantile
+        q_low=0.40,    # Static ramp: low quantile
+        q_hig=0.60,    # Static ramp: high quantile
         ndays_past=21,  # Number of days (backwards) to consider in synthesis.
         r_max=1.8,     # Clamp up to these R values (for the average)
         k_start=0.95,   # Ramp method: starting coefficient
@@ -386,7 +386,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp_highc"
 
-    elif exd.notes == "NONE":  # DEFAULT CONDITION, does not fall in any of the previous
+    elif exd.notes == "NONE":  # DEFAULT CONDITION, does not fall into any of the previous
         # # -()- Static ramp
         # synth_method = synth.sorted_bent_mean_ensemble
         # fc.synth_name = exd.method = "static_ramp"
@@ -424,7 +424,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
         #
         # fc.rt_fore2d = synth.random_normal_synth(fc.rtm, fc.ct_past, fc.ndays_fore, **exd.synth_params)
 
-        # -()-
+        # -()- Call another synth with the Rtop method.
         exd.stage, exd.notes = "r_synth", "use_static_ramp_rtop"
         return
 
