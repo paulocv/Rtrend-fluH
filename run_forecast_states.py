@@ -63,7 +63,7 @@ def main():
     # week_roi_start = week_pres - pd.Timedelta(6, "W")
 
     # -()- Current season
-    week_pres = -1  # Last week
+    week_pres = -2  # Last week
     week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
@@ -627,6 +627,8 @@ def postprocess_us(fc_list: list[ForecastPost], cdc: CDCDataBunch, nweeks_fore, 
 def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us,
                      write_synth_names=True, ncols=3, nrows=3, ncpus=1):
 
+    os.makedirs("tmp_figs", exist_ok=True)
+
     # --- Checks
     if len(post_list) != len(cdc.loc_names):
         warnings.warn(f"Hey, list of results (= {len(post_list)}) and of state names (= {len(cdc.loc_names)} do "
@@ -656,7 +658,9 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
 
         # Contents
         factual_ct = cdc.xs_state(state_name).loc[post.day_0:post.day_fore]["value"]
-        last_val = factual_ct.iloc[-1]
+        state_series = preproc_dict[state_name]
+        # last_val = factual_ct.iloc[-1]
+        last_val = state_series.iloc[-1]
         ct_color = "C1" if post.day_pres < cdc.data_time_labels[-1] else "C0"  # C1 if there's a future week available
 
         # Plot function
