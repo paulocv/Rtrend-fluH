@@ -58,4 +58,22 @@ This step requires no interaction. The script will fetch the data from CDC GitHu
 
 ## Stage 3: run and tweak the forecast
 
+Once everything is up-to-date, the forecast can be executed. The steps of this stage will possibly be performed multiple times, depending on the feedback about the produced forecast.
+
+### Step 3.1: Run the forecast code
+
+With the previous stages successfully performed, in a terminal with the `rtrend_forecast` environment active, type:
+
+````
+python run_forecast_states.py
+````
+
+A series of messages will be printed on the screen, possibly with some warnings. Unless the code stops with an error traceback, the forecast should be performed for all states.
+
+### Step 3.2: Visually inspect the forecasts
+
+### Step 3.3: Tweak parameters (if needed)
+
+
+
 
