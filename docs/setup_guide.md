@@ -41,7 +41,7 @@ GitHub CLI is a tool to use GitHub from the command line. Both git and GitHub CL
 
     Start the application:
     ```
-    git auth login
+    gh auth login
     ```
 
     Then follow the instructions. The CEPH username is: CEPH-Lab (case-sensitive)
