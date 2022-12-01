@@ -47,8 +47,11 @@ MIN_CT_SAMPLES = 100  # Have at least this number of forecast c(t) curves for "a
 
 
 def main():
+    # -
+    # ------------------------------------------------------------------------------------------------------------------
     # PARAMETERS
-    # --------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    # -
     # --- Preprocess params
     ct_cap_fac = 8  # Multiply the historical maximum by this factor to obtain the ct_cap (maximum)
 
@@ -87,6 +90,7 @@ def main():
     interp_params = dict(
         rel_smooth_fac=0.01,
         spline_degree=3,
+        rollav_window=0,  # Number of weeks to take rolling average. Use 0 or None to deactivate.
     )
 
     # MCMC calculation of R(t)
@@ -148,6 +152,12 @@ def main():
     # SELECT ONLY THESE STATES
     # use_states = ["California", "Texas", "Michigan", "Indiana", "Wyoming", "New York", "Colorado", "Maryland"]  #
     use_states = None
+
+    # -
+    # ------------------------------------------------------------------------------------------------------------------
+    # EXECUTION
+    # ------------------------------------------------------------------------------------------------------------------
+    # -
 
     # PRELIMINARIES
     # -------------
@@ -283,14 +293,27 @@ def callback_interpolation(exd: ForecastExecutionData, fc: ForecastOutput):
 
     # Execution
     # ---------------------------
+
+    # Extract some days time-related values and containers
     fc.day_0 = exd.state_series.index[0] - pd.Timedelta(WEEKLEN, "D")  # First accounted day (7 DAYS BEFORE 1st REPORT)
     fc.day_pres = exd.state_series.index[-1]
     t_weekly = (exd.state_series.index - fc.day_0).days.array  # Weekly number of days as integers.
+
+    # Take rolling average (optional)
+    roll_wind = exd.interp_params["rollav_window"]
+    if roll_wind:
+        data_weekly = exd.state_series.rolling(roll_wind).mean()  # Rolling average
+        data_weekly[:roll_wind-1] = exd.state_series[:roll_wind-1]  # Fill first NAN values with original ones
+        data_weekly[:] *= exd.state_series[-1] / data_weekly[-1] if data_weekly[-1] else 1  # Rescale to match last day
+    else:
+        data_weekly = exd.state_series
+
+    # Run the interpolation
     fc.t_daily, fc.ct_past, fc.daily_spline, fc.float_data_daily = \
-        interp.weekly_to_daily_spline(t_weekly, exd.state_series, return_complete=True, **exd.interp_params)
+        interp.weekly_to_daily_spline(t_weekly, data_weekly, return_complete=True, **exd.interp_params)
 
+    # Get more time-related values and containers
     fc.past_daily_tlabels = fc.day_0 + pd.TimedeltaIndex(fc.t_daily, "D")
-
     fc.ndays_roi = fc.t_daily.shape[0]
     fc.ndays_fore = WEEKLEN * exd.nweeks_fore
 
