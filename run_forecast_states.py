@@ -63,7 +63,7 @@ def main():
     # week_roi_start = week_pres - pd.Timedelta(6, "W")
 
     # -()- Current season
-    week_pres = -2  # Last week
+    week_pres = -3  # Last week
     week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
@@ -131,7 +131,7 @@ def main():
 
     # --- Misc
     post_weekly_coefs = np.ones(nweeks_fore, dtype=float)  # Postprocess weekly multiplicative coefficient
-    post_weekly_coefs[0] = 0.6  # Thanksgiving underreporting effect
+    # post_weekly_coefs[0] = 0.6  # Thanksgiving underreporting effect
 
     # --- Program parameters
     cdc_data_fname = "hosp_data/truth-Incident Hospitalizations.csv"
@@ -358,7 +358,6 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
     # Briefing
     # ---------------------------
     # Exception states (these would have exceedingly explosive outbreaks with the default ramp).
-    special_states_01 = ["Alabama", "Illinois", "Louisiana", "Maryland", "North Carolina", "South Carolina"]
 
     # exd.method = "STD"
 
@@ -374,7 +373,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
 
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
         synth_method = synth.random_normal_synth
-        fc.synth_name = exd.method = "rnd_normal"
+        fc.synth_name = exd.method = f"rnd_normal_{exd.synth_params['center']:0.2f}"
 
         if exd.state_name == "Virgin Islands":  # Chose params for more conservative estimates.
             exd.synth_params["center"] = 0.8
@@ -397,6 +396,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
 
     elif exd.notes == "use_static_ramp_rtop":
         exd.synth_params["rmean_top"] -= 0.05  # Has an initial value. Decreases at each pass.
+
         # exd.synth_params["max_width"] = 0.35
         exd.synth_params["k_start"] = 1.0
         exd.synth_params["k_end"] = 0.85
@@ -416,20 +416,19 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
     # Apply the method
     fc.rt_fore2d = synth_method(fc.rtm, fc.ct_past, fc.ndays_fore, **exd.synth_params)
 
+    # Debriefing
+    # ---------------------------
+
     if fc.rt_fore2d.shape[0] == 0:  # Problem: no R value satisfied the filter criterion
-        # -()- Do a normal
-        # # Action: repeat the synth right away
-        # fc.synth_name = exd.method = "rnd_normal"
-        # exd.log_current_pipe_step()
-        #
-        # fc.rt_fore2d = synth.random_normal_synth(fc.rtm, fc.ct_past, fc.ndays_fore, **exd.synth_params)
+        # -()- If rtop was already reduced many times (would be an infinite loop), relies on a random normal
+        if exd.synth_params["rmean_top"] < 0.9:
+            exd.stage, exd.notes = "r_synth", "use_rnd_normal"
+            exd.synth_params["center"] = 1.1  # Arbitrarily chosen
+            return
 
         # -()- Call another synth with the Rtop method.
         exd.stage, exd.notes = "r_synth", "use_static_ramp_rtop"
         return
-
-    # Debriefing
-    # ---------------------------
 
     # if exd.state_name in special_states_01:
     #     exd.stage, exd.notes = "c_reconst", "no_filter"  # Approve, but signal that state is mustn't be ct-filtered
@@ -542,6 +541,9 @@ def forecast_state(state_name: str, state_series: pd.Series, nweeks_fore, except
                          f"Log of stages:\n")
         sys.stderr.write(exd.stage_log.__str__())
         sys.stderr.write('\n')
+
+        # -()- OPTION: skip this state
+        return None
 
     # print(f"WATCH [{state_name}] LOG")
     # print(exd.stage_log)
