@@ -66,7 +66,7 @@ def main():
     # week_roi_start = week_pres - pd.Timedelta(6, "W")
 
     # -()- Current season
-    week_pres = -3  # Last week
+    week_pres = -1  # Last week
     week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
@@ -106,18 +106,23 @@ def main():
     # R(t) Synthesis
     synth_params = dict(
         # Ramp params
-        q_low=0.40,    # Static ramp: low quantile
-        q_hig=0.60,    # Static ramp: high quantile
-        ndays_past=21,  # Number of days (backwards) to consider in synthesis.
+        q_low=0.45,    # Static ramp: low quantile
+        q_hig=0.55,    # Static ramp: high quantile
+        ndays_past=14,  # Number of days (backwards) to consider in synthesis.
         r_max=1.8,     # Clamp up to these R values (for the average)
         k_start=0.95,   # Ramp method: starting coefficient
         k_end=0.85,      # Ramp method: ending coefficient
 
-        # Dynamic ramp
+        # # # Dynamic ramp
+        # r1_start=0.9,
+        # r2_start=1.8,
+        # r1_end=0.56,   # R_new Value to which R = 1 is converted
+        # r2_end=1.1,    # R_new Value to which R = 2 is converted
+        # # Dynamic ramp
         r1_start=1.0,
-        r2_start=1.50,
-        r1_end=0.80,   # R_new Value to which R = 1 is converted
-        r2_end=1.04,    # R_new Value to which R = 2 is converted
+        r2_start=1.8,
+        r1_end=0.56,   # R_new Value to which R = 1 is converted
+        r2_end=1.1,    # R_new Value to which R = 2 is converted
 
         # Rtop ramp extra params
         rmean_top=1.40,  # (Obs: Starting value, but it is decreased at each pass, including the first)
@@ -136,6 +141,11 @@ def main():
     # --- Misc
     post_weekly_coefs = np.ones(nweeks_fore, dtype=float)  # Postprocess weekly multiplicative coefficient
     # post_weekly_coefs[0] = 0.6  # Thanksgiving underreporting effect
+    # # Christmas
+    # post_weekly_coefs[1] = 0.75  # Christmas
+    # post_weekly_coefs[2] = 0.70  # Christmas
+    # post_weekly_coefs[3] = 0.80  # Christmas
+
 
     # --- Program parameters
     cdc_data_fname = "hosp_data/truth-Incident Hospitalizations.csv"
@@ -402,9 +412,9 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
             exd.synth_params["center"] = 0.8
             exd.synth_params["sigma"] = 0.02
 
-    elif exd.notes == "NONE" and sum_roi > 1200:        # --- Large numbers: could increase width of the sample
-        # exd.synth_params["q_low"] = 0.30
-        # exd.synth_params["q_hig"] = 0.70
+    elif exd.notes == "NONE" and sum_roi > 1600:        # --- Large numbers: could increase width of the sample
+        exd.synth_params["q_low"] = 0.05
+        exd.synth_params["q_hig"] = 0.95
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp_highc"
 
