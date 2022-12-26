@@ -66,7 +66,7 @@ def main():
     # week_roi_start = week_pres - pd.Timedelta(6, "W")
 
     # -()- Current season
-    week_pres = -2  # Last week
+    week_pres = -1  # Last week
     week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
@@ -106,13 +106,13 @@ def main():
     # R(t) Synthesis
     synth_params = dict(
         # Ramp params
-        q_low=0.45,    # Static ramp: low quantile
-        q_hig=0.55,    # Static ramp: high quantile
-        ndays_past=14,  # Number of days (backwards) to consider in synthesis.
+        q_low=0.25,    # Static ramp: low quantile
+        q_hig=0.75,    # Static ramp: high quantile
+        ndays_past=14, # Number of days (backwards) to consider in synthesis.
         r_max=1.8,     # Clamp up to these R values (for the average)
-        k_start=0.95,   # Ramp method: starting coefficient
-        k_end=0.85,      # Ramp method: ending coefficient
-        i_saturate= -2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
+        k_start=0.95,  # Ramp method: starting coefficient
+        k_end=0.85,    # Ramp method: ending coefficient
+        i_saturate= -1, #-2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
 
         # # # Dynamic ramp
         # r1_start=0.9,
