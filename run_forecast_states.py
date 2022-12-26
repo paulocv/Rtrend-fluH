@@ -66,7 +66,7 @@ def main():
     # week_roi_start = week_pres - pd.Timedelta(6, "W")
 
     # -()- Current season
-    week_pres = -1  # Last week
+    week_pres = -2  # Last week
     week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
@@ -112,6 +112,7 @@ def main():
         r_max=1.8,     # Clamp up to these R values (for the average)
         k_start=0.95,   # Ramp method: starting coefficient
         k_end=0.85,      # Ramp method: ending coefficient
+        i_saturate= -2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
 
         # # # Dynamic ramp
         # r1_start=0.9,
@@ -416,7 +417,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
         exd.synth_params["q_low"] = 0.05
         exd.synth_params["q_hig"] = 0.95
         synth_method = synth.sorted_dynamic_ramp
-        fc.synth_name = exd.method = "dynamic_ramp_highc"
+        fc.synth_name = exd.method = "dynamic_ramp_highc" + (exd.synth_params["i_saturate"] != -1) * "_sat"  #saturation
 
     elif exd.notes == "NONE":  # DEFAULT CONDITION, does not fall into any of the previous
         # # -()- Static ramp
@@ -425,7 +426,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
 
         # -()- Dynamic ramp
         synth_method = synth.sorted_dynamic_ramp
-        fc.synth_name = exd.method = "dynamic_ramp"
+        fc.synth_name = exd.method = "dynamic_ramp" + (exd.synth_params["i_saturate"] != -1) * "_sat"  #saturation
 
     elif exd.notes == "use_static_ramp_rtop":
         exd.synth_params["rmean_top"] -= 0.05  # Has an initial value. Decreases at each pass.
