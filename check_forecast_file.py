@@ -141,8 +141,11 @@ def make_plots_for_all(cdc: CDCDataBunch, fore_df: pd.DataFrame, nweeks_past=6,
     num_locs = len(locid_gp)
 
     # Features from past data
-    week_pres = cdc.data_time_labels[-1]
     week_roi_start = cdc.data_time_labels[-nweeks_past]
+    # -()- From CDC upated truth data
+    # week_pres = cdc.data_time_labels[-1]
+    # -()- From our forecast file
+    week_pres = fore_dates[0]
 
     # TMP VARS without loop
     # fig, ax = plt.subplots()
@@ -153,13 +156,15 @@ def make_plots_for_all(cdc: CDCDataBunch, fore_df: pd.DataFrame, nweeks_past=6,
         ax = axes[i_ax]
         state_name = cdc.to_loc_name[locid]
         weekly_quantiles = _reconstruct_quantiles(df, state_name, locid)
-        state_df = cdc.df.xs(cdc.to_loc_id[state_name], level="location")
-        ct_past = state_df.loc[week_roi_start:week_pres]["value"]
-        last_val = ct_past.iloc[-1]
+
+        factual_ct = cdc.xs_state(state_name).loc[week_roi_start:]["value"]
+        last_day = week_pres - pd.Timedelta(1, "w")
+        last_val = factual_ct.loc[last_day]
 
         # Plot function
-        vis.plot_ct_past_and_fore(ax, fore_dates, weekly_quantiles, ct_past, CDC_QUANTILES_SEQ, state_name, i_ax=0,
-                                  num_quantiles=NUM_QUANTILES, insert_point=(week_pres, last_val))
+        vis.plot_ct_past_and_fore(ax, fore_dates, weekly_quantiles, factual_ct, CDC_QUANTILES_SEQ, state_name, i_ax=0,
+                                  num_quantiles=NUM_QUANTILES, insert_point=(last_day, last_val)
+                                  )
 
         print(f"  [{state_name}] ({i_ax + 1} of {num_locs})  |", end="")
         sys.stdout.flush()
