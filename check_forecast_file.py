@@ -5,20 +5,19 @@ The file is expected to be in the CDC format.
 """
 import os
 
-import colorama
-import datetime as dtime
+# import datetime as dtime
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import sys
 
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
 from datetime import datetime, timedelta
 
 import rtrend_tools.data_io as dio
 import rtrend_tools.visualization as vis
 
-from rtrend_tools.cdc_params import WEEKDAY_TGT, NUM_WEEKS_FORE, REF_DEADLINE, CDC_QUANTILES_SEQ, NUM_QUANTILES, \
+from rtrend_tools.cdc_params import WEEKDAY_TGT, NUM_WEEKS_FORE, CDC_QUANTILES_SEQ, NUM_QUANTILES, \
     get_next_flu_deadline_from
 from rtrend_tools.forecast_structs import CDCDataBunch
 from toolbox.plot_tools import make_axes_seq
