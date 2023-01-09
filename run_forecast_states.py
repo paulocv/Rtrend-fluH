@@ -702,7 +702,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         # Plot function
         vis.plot_ct_past_and_fore(ax, post.fore_time_labels, post.weekly_quantiles, factual_ct, post.quantile_seq,
                                   state_name, i_ax, post.synth_name if write_synth_names else None, post.num_quantiles,
-                                  ct_color, (post.day_pres, last_val))
+                                  ct_color, (post.day_pres, last_val), plot_trend=False)
 
         print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
 
@@ -728,7 +728,8 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         _ct_color = "C1" if us.day_pres < cdc.data_time_labels[-1] else "C0"  # C1 if there's a future week available
 
         vis.plot_ct_past_and_fore(ax, us.fore_time_labels, us.weekly_quantiles, _factual_ct, CDC_QUANTILES_SEQ,
-                                  "US", None, None, us.num_quantiles, _ct_color, (us.day_pres, _last_val))
+                                  "US", None, None, us.num_quantiles, _ct_color, (us.day_pres, _last_val),
+                                  plot_trend=False)
         print(f"   [US] Forecast plotted ()")
 
     # --- Plot postprocess and export
