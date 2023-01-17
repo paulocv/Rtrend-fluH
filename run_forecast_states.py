@@ -120,8 +120,8 @@ def main():
         # r1_end=0.56,   # R_new Value to which R = 1 is converted
         # r2_end=1.1,    # R_new Value to which R = 2 is converted
         # # Dynamic ramp
-        r1_start=1.0,
-        r2_start=1.8,
+        r1_start=0.8,
+        r2_start=1.6,
         r1_end=0.70,   # R_new Value to which R = 1 is converted
         r2_end=1.4,    # R_new Value to which R = 2 is converted
 
