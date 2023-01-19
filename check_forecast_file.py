@@ -161,9 +161,9 @@ def make_plots_for_all(cdc: CDCDataBunch, fore_df: pd.DataFrame, nweeks_past=6,
         last_val = factual_ct.loc[last_day]
 
         # Plot function
-        vis.plot_ct_past_and_fore(ax, fore_dates, weekly_quantiles, factual_ct, CDC_QUANTILES_SEQ, state_name, i_ax=0,
-                                  num_quantiles=NUM_QUANTILES, insert_point=(last_day, last_val), plot_trend=False
-                                  )
+        vis.plot_ct_past_and_fore(ax, fore_dates, weekly_quantiles, factual_ct, CDC_QUANTILES_SEQ, state_name,
+                                  i_ax=i_ax, num_quantiles=NUM_QUANTILES, insert_point=(last_day, last_val),
+                                  plot_trend=False)
 
         print(f"  [{state_name}] ({i_ax + 1} of {num_locs})  |", end="")
         sys.stdout.flush()
