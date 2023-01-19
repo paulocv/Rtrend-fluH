@@ -66,7 +66,7 @@ def main():
     # week_roi_start = week_pres - pd.Timedelta(6, "W")
 
     # -()- Current season
-    week_pres = -1  # Last week
+    week_pres = -4  # Last week
     week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
@@ -651,7 +651,19 @@ def postprocess_us(fc_list: list[ForecastPost], cdc: CDCDataBunch, nweeks_fore, 
         pd.DatetimeIndex((post.day_pres + pd.Timedelta((i+1) * WEEKLEN, "D") for i in range(nweeks_fore)))
 
     # Perform the sum of samples from each state
-    ct_fore2d_weekly = sum(post_.samples_to_us for post_ in fc_list if post_ is not None)
+
+    # # -()- AVG-SORT Sort the ensembles of each state to better estimate the quantiles.
+    # sorted_samples = synth.sort_ensembles_by_average([post_.samples_to_us for post_ in fc_list if post_ is not None])
+
+    # -()- T-SORT Sorts the ensemble independently at each time point.
+    sorted_samples = synth.sort_ensembles_at_each_point([post_.samples_to_us for post_ in fc_list if post_ is not None])
+
+    # # # -()- ORIGINAL
+    # sorted_samples = [post_.samples_to_us for post_ in fc_list if post_ is not None]
+
+    ct_fore2d_weekly = sum(sorted_samples)
+
+    # Calculate quantiles from the sum
     post.weekly_quantiles = synth.calc_tseries_ensemble_quantiles(ct_fore2d_weekly)
     if post_coefs is not None:  # Apply post-coefficient for each week, if informed
         post.weekly_quantiles *= post_coefs
