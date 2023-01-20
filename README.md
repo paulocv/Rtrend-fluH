@@ -1,6 +1,6 @@
 # Rtrend Forecasting Method
 
-![alt text](https://github.com/paulocv/Rtrend-fluH/blob/main/the_first_mask-01.svg "Rtrend Logo")
+![alt text](https://github.com/paulocv/Rtrend-fluH/blob/main/the_first_mask-01.svg "Rtrend Logo" | width=25)
 
 ## Setup and usage 
 
