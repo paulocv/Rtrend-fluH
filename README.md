@@ -1,4 +1,4 @@
-# Rtrend Forecasting Method
+# Rtrend Forecasting Method – Influenza Hospitalization
 
 ![image](https://github.com/paulocv/Rtrend-fluH/blob/main/rt_flu_logo.png "Rtrend Flu Logo")
 
