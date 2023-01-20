@@ -1,6 +1,6 @@
 # Rtrend Forecasting Method – Influenza Hospitalization
 
-![image](https://github.com/paulocv/Rtrend-fluH/blob/main/rt_flu_logo.png "Rtrend Flu Logo")
+![image](rt_flu_logo.png "Rtrend Flu Logo")
 
 ## Setup and usage 
 
