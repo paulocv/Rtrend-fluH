@@ -19,6 +19,9 @@ The MCMC procedure for R(t) estimation is written in C. Although we provide a pr
 
 The script will try to compile with `gcc`, but you can use the one available in your system to compile [rtrend_tools/rt_mcmc/Rt.c](../rtrend_tools/rt_mcmc/Rt.c) into [main_mcmc_rt](../main_mcmc_rt).
 
+### Pre 3: Gnu Scientific Library (GSL)
+This library is required by the MCMC code. It can be obtained from Conda ([see here](https://anaconda.org/conda-forge/gsl)) or [check the GSL page](https://www.gnu.org/software/gsl/) for installation.
+
 
 ## Step-by-step setup
 
