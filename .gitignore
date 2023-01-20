@@ -36,7 +36,7 @@ rt_mcmc/BKP_*
 
 # Logos
 !*.svg
-
+!rt_flu_logo.png
 
 # ----------------------------------
 # Standard Python gitignore template
