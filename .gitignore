@@ -34,6 +34,9 @@ rt_mcmc/BKP_*
 !LICENSE
 !README.md
 
+# Logos
+!*.svg
+
 
 # ----------------------------------
 # Standard Python gitignore template
