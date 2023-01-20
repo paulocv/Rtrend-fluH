@@ -66,7 +66,7 @@ def main():
     # week_roi_start = week_pres - pd.Timedelta(6, "W")
 
     # -()- Current season
-    week_pres = -4  # Last week
+    week_pres = -1  # Last week
     week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
