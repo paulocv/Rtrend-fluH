@@ -10,20 +10,13 @@ from colorama import Fore, Style
 from datetime import datetime, timedelta
 
 from rtrend_tools.cdc_params import FLU_TRUTH_URL
-from rtrend_tools.data_io import load_cdc_truth_data
-from rtrend_tools.scripting import NEW_SECTION, ENV_NAME, ENV_FLEX_PATH, MCMC_BIN, prompt_yn, conda_env_exists, \
+# from rtrend_tools.data_io import load_cdc_truth_data
+from rtrend_tools.scripting import NEW_SECTION, ENV_NAME, ENV_FLEX_PATH, prompt_yn, conda_env_exists, \
     MCMC_COMPILE_SCRIPT, FLU_TRUTH_DATA_BKPDIR, fetch_file_online_raise, FLU_TRUTH_DATA_FILE
 
 
 def main():
-    """
-    - v Pull changes
-    - v Check and compare environment
-    - Recompile MCMC
-    - BKP truth data
-    - Fetch new truth data from CDC
 
-    """
     git_pull_all_changes()
     check_and_compare_environment()
     # recompile_mcmc_code()  # Not used now, troublesome: PATH variable not set, and it requires GSL.
@@ -46,7 +39,7 @@ def git_pull_all_changes():
     if answer:  # Git reset everything
         print("Ok, resetting now...")
         os.system("git restore .")
-        os.system("git submodules foreach 'git reset'")
+        os.system("git submodule foreach 'git reset'")
     else:
         print("Ok. If you get conflicts from git in the next step, please restart this script and select 'Y' for the "
               "previous question.")
