@@ -28,6 +28,8 @@ rt_mcmc/BKP_*
 # Documentation
 !docs/
 !docs/*.md
+!docs/figs/
+!docs/figs/*
 
 # Official forecast outputs
 !forecast_out/
