@@ -1,6 +1,6 @@
 # How to use - Rtrend FluH Forecast
 
-Before using, it is recommended that you read and execute the steps in the [Setup guide](setup_guide.md).
+Before using by the first time, it is recommended that you read and execute the steps in the [Setup guide](setup_guide.md).
 
 ## Stage 1: activate the virtual environment
 
@@ -47,7 +47,7 @@ For the next two prompts, type "y" to accept the pull operation and "y" again to
 
 > Some new libraries may have been included since the last changes. This step will install these libraries into your local Conda environment.
 
-This step usually requires no interaction. However, if updates are needed, the script will call `conda env update`, which can take anywhere from a few seconds to a few minutes and use considerable RAM. It can also prompt you to confirm (type "y") the new packages.
+This step usually requires no interaction. However, if updates are needed, the script will call `conda env update`, which can take anywhere from a few seconds to a few minutes. It can also prompt you to confirm (type "y") the new packages.
 
 ### Step 2.3: Updating the truth data from CDC
 
@@ -55,24 +55,52 @@ This step usually requires no interaction. However, if updates are needed, the s
 
 This step requires no interaction. The script will fetch the data from CDC GitHub repo, make a backup from the last file (if needed) then overwrite it with the new data. A warning will be shown if the new data is more than one week old, which probably means that the latest week was not uploaded yet by the CDC.
 
+If all steps above succeed, your code repository should be ready to run the forecast. Otherwise, in case of errors/warnings, follow the instructions from the terminal.
 
-## Stage 3: run and tweak the forecast
+## Stage 3: check past week forecasts
 
-Once everything is up-to-date, the forecast can be executed. The steps of this stage will possibly be performed multiple times, depending on the feedback about the produced forecast.
+> In this step, we check how we did in the past weeks, given the updated truth data from CDC.
 
-### Step 3.1: Run the forecast code
+### Step 3.1: Run the code to produce past forecast plots
 
-With the previous stages successfully performed, in a terminal with the `rtrend_forecast` environment active, type:
+You will call a script that plots a previous forecast file against new data. In the same terminal with the `rtrend_forecast` environment active, replace the desired date in the following command:
+
+```
+python check_forecast_file.py forecast_out/YYYY-MM-DD-CEPH-Rtrend_fluH.csv 
+```
+
+Where `YYYY`, `MM` and `DD` should be the year, month and day of the last week's forecast. Autocompletion (pressing 'tab' after `forecast_out/`) may help you with finding the existing files. Usually, you will use _last Monday_ for the past week forecast, the previous Monday for past two weeks forecast, etc.
+
+If the code runs smoothly, you can safely ignore the warning about the target end date not matching the expected one for CDC, as this is a past submission deadline.
+
+> Note: if you can't find the desired forecast file, check that you have updated your local files by Stage 2 running again (press 'y' when prompted).
+
+### Step 3.2: Check the forecast plots
+
+If the past step succeeded, open the project in a finder/explorer window and look for the file `ct_states_reconstructed.pdf` inside the `tmp_figs/` directory. You should see, for each state, the forecast (quantiles and median) overlapping with the latest truth data from CDC, such as in the following figure:
+
+![past forecast example](figs/past_forecast_example.png)
+
+## Stage 4: run and tune the forecast
+
+ the forecast can be executed. The steps of this stage will possibly be performed multiple times, depending on the feedback about the produced forecast.
+
+### Step 4.1: Run the forecast code
+
+In the same terminal with the `rtrend_forecast` environment active, type:
 
 ````
 python run_forecast_states.py
 ````
 
-A series of messages will be printed on the screen, possibly with some warnings. Unless the code stops with an error traceback, the forecast should be performed for all states.
+A series of messages will be printed on the screen, possibly with some warnings. If the code ends with a "Plots done!" message or similar, the forecast probably completed without errors. Otherwise, an error traceback message should indicate at which point there was an error.
 
-### Step 3.2: Visually inspect the forecasts
+### Step 4.2: Visually inspect the forecasts
 
-### Step 3.3: Tweak parameters (if needed)
+### Step 4.3: Tweak parameters (if needed)
+
+## Stage 5: check and submit
+
 
 
 
