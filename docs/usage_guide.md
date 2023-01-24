@@ -77,31 +77,53 @@ If the code runs smoothly, you can safely ignore the warning about the target en
 
 ### Step 3.2: Check the forecast plots
 
-If the past step succeeded, open the project in a finder/explorer window and look for the file `ct_states_reconstructed.pdf` inside the `tmp_figs/` directory. You should see, for each state, the forecast (quantiles and median) overlapping with the latest truth data from CDC, such as in the following figure:
+If the past step succeeded, open the project in a finder/explorer window and look for the file `ct_states_reconstructed.pdf` inside the `tmp_figs/` directory. You should see, for each state, the forecast (quantiles and median) overlapping with the latest truth data from CDC, as below:
 
 ![past forecast example](figs/past_forecast_example.png)
 
-## Stage 4: run and tune the forecast
+> You can repeat steps 3.1 and 3.2 with the weeks that you want to check.
 
- the forecast can be executed. The steps of this stage will possibly be performed multiple times, depending on the feedback about the produced forecast.
+## Stage 4: run and tune the current forecast
+
+ The steps of this stage will possibly be performed multiple times, depending on the quality and feedback of the produced forecast.
 
 ### Step 4.1: Run the forecast code
 
-In the same terminal with the `rtrend_forecast` environment active, type:
+In the same terminal with the `rtrend_forecast` environment active, type and run:
 
 ````
 python run_forecast_states.py
 ````
 
-A series of messages will be printed on the screen, possibly with some warnings. If the code ends with a "Plots done!" message or similar, the forecast probably completed without errors. Otherwise, an error traceback message should indicate at which point there was an error.
+A series of messages will be printed on the screen, possibly with some warnings. If the code ends with a "Plots done!" message or similar, the forecast completed without errors, and you can proceed to the next step. Otherwise, an error traceback message should indicate at which point there was an error, and you can inspect the code and project files.
 
 ### Step 4.2: Visually inspect the forecasts
 
-### Step 4.3: Tweak parameters (if needed)
+If step 4.1 was successful, the code will have produced the following plot files, all within the `tmp_figs/` folder inside the repository:
+
+* `ct_states.pdf` Shows the forecast quantiles and median following the data from the last week. This is the main plot to check.
+* `rt_states.pdf` Shows the past reproduction number R(t) estimated by MCMC, as well as the future R(t) projected by the forecast algorithm. Check this file if unreasonable projections are found in ct_states.pdf.
+* `interp_states.pdf`, `smooth_states.pdf` or `preproc_states.pdf` Contains the preprocessed input data, combined with the raw truth data for comparison. Allows us to inspect the preprocessing for issues (although we rarely check this file).
+
+Scroll through the `ct_states.pdf` file and evaluate the quality of the forecast. If it looks reasonable for all states, you can proceed to **Stage 5**. Otherwise, check the next step to tune the forecast and improve its quality.
+
+### Step 4.3: Tune parameters (if needed)
+
+> Often, especially during the test phase of our method, we may want to tweak the forecast parameters to produce better results for the current data. This shall become less necessary as we understand the data and set criteria to procedurally choose the parameters.
+
+Go to the project main directory and open the file `run_forecast_states.py`, preferably in an IDE or code editor (like Visual Studio Code or PyCharm) for code highlighting. Most of the basic tuning can be done by changing the parameters at the header of the `main()` function. Please check the [Parameter Guide](parameter_guide.md) to find the most relevant parameters and their effect into the forecast method. 
+
+Edit the parameters, save the file and return to step 4.1 to rerun the forecast.  
 
 ## Stage 5: check and submit
 
+[TODO]
 
+[Until I write this documentation, here is where you should submit the forecast. The submission occurs when you do a Pull Request to the main repository.]:
+
+* Flu forecast repository (CEPH fork): [https://github.com/paulocv/Flusight-forecast-data](https://github.com/paulocv/Flusight-forecast-data)
+
+* COVID-19 forecast repository (CEPH fork): [https://github.com/paulocv/covid19-forecast-hub](https://github.com/paulocv/covid19-forecast-hub)
 
 
 
