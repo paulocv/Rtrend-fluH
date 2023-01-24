@@ -229,7 +229,7 @@ def main():
 
     if do_export:
         print(f"__________ \n Exporting to '{cdc_out_fname}'...")
-        dio.export_forecast_cdc(cdc_out_fname, result_list, us_post, cdc, nweeks_fore)
+        dio.export_forecast_flu(cdc_out_fname, result_list, us_post, cdc, nweeks_fore)
 
     print("\n___________________\nNOW PLOTTING\n")
     make_plot_tables(result_list, cdc, preproc_dict, nweeks_fore, us_post, write_synth_names,
