@@ -3,12 +3,13 @@ Perform checks and plot data from a forecast csv file.
 The file is expected to be in the CDC format.
 
 """
+import argparse
 import os
-
 # import datetime as dtime
 import numpy as np
 import pandas as pd
 # import matplotlib.pyplot as plt
+import shutil
 import sys
 
 from colorama import Fore, Style
@@ -19,7 +20,7 @@ import rtrend_tools.visualization as vis
 import rtrend_tools.utils as utils
 
 from rtrend_tools.cdc_params import WEEKDAY_TGT, NUM_WEEKS_FORE, CDC_QUANTILES_SEQ, NUM_QUANTILES, \
-    FLU_FORECAST_FILE_FMT, get_next_flu_deadline_from
+    FLU_FORECAST_FILE_FMT, WEEKDAY_FC_DAY, get_next_flu_deadline_from, get_last_weekday_before_flu_deadline
 from rtrend_tools.forecast_structs import CDCDataBunch
 from toolbox.plot_tools import make_axes_seq
 
@@ -34,7 +35,8 @@ def main():
 
     # ------------------------------------------------------------------------------------------------------------------
 
-    cdc, fore_df = import_data()
+    cl_args = parse_args()
+    cdc, fore_df = import_data(cl_args.fname)
 
     if fore_df is None:
         print("Quitting the program...")
@@ -45,16 +47,23 @@ def main():
 
     check_forecast_data(cdc, fore_df)
     make_plots_for_all(cdc, fore_df, nweeks_past=nweeks_past)
+    copy_to_cdc_fname(cl_args)
     print_final_remarks()
 
 
-def import_data(hosp_fname="hosp_data/truth-Incident Hospitalizations.csv"):
-    # --- Read forecast file name from data
-    try:
-        fore_fname = sys.argv[1]
-    except IndexError:
-        sys.stderr.write("\nHey, missing 1 argument.\nUsage: python check_forecast_file.py [forecast_file_path]\n")
-        return None, None
+def parse_args():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("fname", help="Path to the forecast output file to check.")  # Mandatory argument.
+    parser.add_argument("-r", "--rename", action="store_true", help="Creates a copy of the forecast file with "
+                                                                    "the name requested by CDC, based in the current"
+                                                                    " deadline.")
+
+    return parser.parse_args()
+
+
+def import_data(fore_fname, hosp_fname="hosp_data/truth-Incident Hospitalizations.csv"):
 
     # --- Read each file
     print("Reading files...")
@@ -81,13 +90,21 @@ def check_forecast_data(cdc, fore_df):
     now = datetime.today()  # - timedelta(weeks=1)
     next_deadline = get_next_flu_deadline_from(now)
     expected_target_day = next_deadline.date() + timedelta(days=(WEEKDAY_TGT - next_deadline.weekday()) % 7)
-    #   ^ Get the next Saturday (WEEKDAY_TGT) after next deadline.
+    #   ^ Get the NEXT Saturday (WEEKDAY_TGT) after next deadline.
 
-    # TEST WATCH
-    o = utils.format_pd_timestamp_date(FLU_FORECAST_FILE_FMT, next_deadline)
+    # # TEST WATCH
+    # forecast_day = next_deadline.date() - timedelta(days=(next_deadline.weekday() - WEEKDAY_FC_DAY) % 7)
+    #   ^ Get the LAST forecast_day (Monday) before deadline.
+    # print(f"Previous forecast day = {forecast_day}")
+    # from rtrend_tools.cdc_params import get_last_weekday_before_flu_deadline
+    # print(type(get_last_weekday_before_flu_deadline(WEEKDAY_FC_DAY)))
+    # print(f"FF Previous forecast  = {str(get_last_weekday_before_flu_deadline(WEEKDAY_FC_DAY))}")
+    # o = utils.format_pd_timestamp_date(FLU_FORECAST_FILE_FMT, next_deadline)
+    # print(o)
 
-    print(f"Now:                      {now}")
-    print(f"Next submission deadline: {next_deadline}")
+    print(f"Now:                        {now}")
+    print(f"Next submission deadline:   {next_deadline}")
+    print(f"First expected target date: {expected_target_day}")
 
     # --- Checks number of time labels
     if dates.shape[0] != NUM_WEEKS_FORE:
@@ -100,6 +117,7 @@ def check_forecast_data(cdc, fore_df):
                    f"({expected_target_day}), based on the next submission deadline.")
 
     # ---
+    print()
 
 
 def _data_warn(text, end="\n"):
@@ -180,13 +198,26 @@ def make_plots_for_all(cdc: CDCDataBunch, fore_df: pd.DataFrame, nweeks_past=6,
     os.makedirs(os.path.dirname(plot_fname), exist_ok=True)
     fig.savefig(plot_fname)
     print(f"Plots done. Check file '{plot_fname}'.")
-
-    # # Prompt to open the file
-    # input()
-    # print("Hello")
-    # print("World")
+    print()
 
     return fig, axes
+
+
+def copy_to_cdc_fname(cl_args):
+    """"""
+    if not cl_args.rename:  # User did not ask to rename
+        return
+
+    current_fname = cl_args.fname
+    dirname = os.path.dirname(current_fname)
+    forecast_day = get_last_weekday_before_flu_deadline(WEEKDAY_FC_DAY)  # FOR FLU
+
+    new_fname = utils.format_pd_timestamp_date(FLU_FORECAST_FILE_FMT, forecast_day)
+    new_fname = os.path.join(dirname, new_fname)
+
+    shutil.copy2(current_fname, new_fname)  # Copy command
+
+    print(f"-r: Copied '{current_fname}' to '{new_fname}' (please check if the date is correct).")
 
 
 def print_final_remarks():
