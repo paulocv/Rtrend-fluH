@@ -16,9 +16,10 @@ from datetime import datetime, timedelta
 
 import rtrend_tools.data_io as dio
 import rtrend_tools.visualization as vis
+import rtrend_tools.utils as utils
 
 from rtrend_tools.cdc_params import WEEKDAY_TGT, NUM_WEEKS_FORE, CDC_QUANTILES_SEQ, NUM_QUANTILES, \
-    get_next_flu_deadline_from
+    FLU_FORECAST_FILE_FMT, get_next_flu_deadline_from
 from rtrend_tools.forecast_structs import CDCDataBunch
 from toolbox.plot_tools import make_axes_seq
 
@@ -81,6 +82,9 @@ def check_forecast_data(cdc, fore_df):
     next_deadline = get_next_flu_deadline_from(now)
     expected_target_day = next_deadline.date() + timedelta(days=(WEEKDAY_TGT - next_deadline.weekday()) % 7)
     #   ^ Get the next Saturday (WEEKDAY_TGT) after next deadline.
+
+    # TEST WATCH
+    o = utils.format_pd_timestamp_date(FLU_FORECAST_FILE_FMT, next_deadline)
 
     print(f"Now:                      {now}")
     print(f"Next submission deadline: {next_deadline}")
@@ -156,13 +160,15 @@ def make_plots_for_all(cdc: CDCDataBunch, fore_df: pd.DataFrame, nweeks_past=6,
         state_name = cdc.to_loc_name[locid]
         weekly_quantiles = _reconstruct_quantiles(df, state_name, locid)
 
-        factual_ct = cdc.xs_state(state_name).loc[week_roi_start:]["value"]
+        factual_ct = cdc.xs_state(state_name)["value"]
         last_day = week_pres - pd.Timedelta(1, "w")
         last_val = factual_ct.loc[last_day]
 
         # Plot function
-        vis.plot_ct_past_and_fore(ax, fore_dates, weekly_quantiles, factual_ct, CDC_QUANTILES_SEQ, state_name,
-                                  i_ax=i_ax, num_quantiles=NUM_QUANTILES, insert_point=(last_day, last_val),
+        vis.plot_ct_past_and_fore(ax, fore_dates, weekly_quantiles, factual_ct.loc[week_roi_start:],
+                                  CDC_QUANTILES_SEQ, state_name,
+                                  i_ax=i_ax, num_quantiles=NUM_QUANTILES,
+                                  insert_point=(last_day, last_val),
                                   plot_trend=False)
 
         print(f"  [{state_name}] ({i_ax + 1} of {num_locs})  |", end="")

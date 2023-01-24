@@ -106,13 +106,13 @@ def main():
     # R(t) Synthesis
     synth_params = dict(
         # Ramp params
-        q_low=0.25,    # Static ramp: low quantile
-        q_hig=0.75,    # Static ramp: high quantile
-        ndays_past=14, # Number of days (backwards) to consider in synthesis.
-        r_max=1.8,     # Clamp up to these R values (for the average)
-        k_start=0.95,  # Ramp method: starting coefficient
-        k_end=0.85,    # Ramp method: ending coefficient
-        i_saturate= -1, #-2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
+        q_low=0.25,      # Static ramp: low quantile
+        q_hig=0.75,      # Static ramp: high quantile
+        ndays_past=14,   # Number of days (backwards) to consider in synthesis.
+        r_max=1.8,       # Clamp up to these R values (for the average)
+        k_start=0.95,    # Ramp method: starting coefficient
+        k_end=0.85,      # Ramp method: ending coefficient
+        i_saturate=-1,   # -2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
 
         # # # Dynamic ramp
         # r1_start=0.9,
@@ -146,7 +146,6 @@ def main():
     # post_weekly_coefs[1] = 0.75  # Christmas
     # post_weekly_coefs[2] = 0.70  # Christmas
     # post_weekly_coefs[3] = 0.80  # Christmas
-
 
     # --- Program parameters
     cdc_data_fname = "hosp_data/truth-Incident Hospitalizations.csv"
@@ -190,7 +189,7 @@ def main():
         if use_states and state_name not in use_states:
             return None
 
-        if state_name in ["US"]:  # Exclusion list
+        if state_name in ["US", "Virgin Islands"]:  # Exclusion list
             return None
 
         print(f"-------------- ({i_s+1} of {cdc.num_locs}) Starting {state_name}...")
