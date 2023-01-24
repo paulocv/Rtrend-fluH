@@ -29,6 +29,10 @@ rt_mcmc/BKP_*
 !docs/
 !docs/*.md
 
+# Official forecast outputs
+!forecast_out/
+!forecast_out/*-CEPH-Rtrend_fluH.csv
+
 # Important stuff and etc
 !.gitignore
 !LICENSE
