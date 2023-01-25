@@ -211,6 +211,7 @@ def copy_to_cdc_fname(cl_args):
     current_fname = cl_args.fname
     dirname = os.path.dirname(current_fname)
     forecast_day = get_last_weekday_before_flu_deadline(WEEKDAY_FC_DAY)  # FOR FLU
+    # TODO: CHANGE THIS TO PICK THE FORECAST DATE FROM FILE
 
     new_fname = utils.format_pd_timestamp_date(FLU_FORECAST_FILE_FMT, forecast_day)
     new_fname = os.path.join(dirname, new_fname)
