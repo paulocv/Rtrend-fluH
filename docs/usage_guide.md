@@ -107,6 +107,8 @@ If step 4.1 was successful, the code will have produced the following plot files
 
 Scroll through the `ct_states.pdf` file and evaluate the quality of the forecast. If it looks reasonable for all states, you can proceed to **Stage 5**. Otherwise, check the next step to tune the forecast and improve its quality.
 
+> Note: this script also creates the file `forecast_out/latest.csv`, which contains the forecast data in the format required by the online repository. If needed, check the [Flusight forecast readme](https://github.com/cdcepi/Flusight-forecast-data/blob/master/data-forecasts/README.md#forecasts) or the [COVID-19 forecast readme](https://github.com/reichlab/covid19-forecast-hub/blob/master/data-processed/README.md#forecasts) to understand the formating rules.
+
 ### Step 4.3: Tune parameters (if needed)
 
 > Often, especially during the test phase of our method, we may want to tweak the forecast parameters to produce better results for the current data. This shall become less necessary as we understand the data and set criteria to procedurally choose the parameters.
@@ -117,11 +119,32 @@ Edit the parameters, save the file and return to step 4.1 to rerun the forecast.
 
 ## Stage 5: check and submit
 
-[TODO]
+Once the forecast looks reasonable in the plots, it can be submitted to the online repository as a .csv file. The repository requires strict formatting rules for the data, and the submission will return errors if these rules are not followed. Therefore, it is helpful to check the file before submitting.
 
-[Until I write this documentation, here is where you should submit the forecast. The submission occurs when you do a Pull Request to the main repository.]:
+### Step 5.1: checking and renaming the forecast csv file
 
-* Flu forecast repository (CEPH fork): [https://github.com/paulocv/Flusight-forecast-data](https://github.com/paulocv/Flusight-forecast-data)
+We have a script to run some automated checks in the forecast file; it is the same one used to plot past forecasts in step 3.1. This time, run it as:
+
+```
+python check_forecast_file.py forecast_out/latest.csv -r 
+```
+
+This time, include the `-r` flag in the end; this copies and renames the `latest.csv` forecast file with the required name for submission, including the CEPH-Rtrend team/model name and the current forecast date.
+
+If the code runs without finding issues in the data, a message in green text will be shown in the end, and the data is (probably, see note below) ready to submit. Otherwise, yellow text messages will warn about data formatting issues. In this case, inspect the file, look for a solution to the issue and rerun the command above. As usual, it is possible that the code aborts due to an error, in which case an error traceback will be printed.
+
+> Note: not all potential data formatting errors are covered by the `check_forecast_file.py` script, so errors in the submission may still occur.
+
+> Note: you can also visually inspect the forecast plots in `tmp_figs/ct_states_reconstructed.pdf`. This should be similar to ct_states.pdf, but reconstructed directly from the forecast file just to cross-check that it was exported correctly.
+
+
+### Step 5.2: submission to the online repository 
+
+Once the forecast was executed and checked without warnings, you are ready to submit the forecast .csv file to the corresponding online repository on GitHub. This can be done from a browser via GitHub, or using git or the GitHub Desktop app locally.
+
+For submissions on behalf of the CEPH Lab team, you can follow this [Forecast Submission Guide](./submission_guide.md). Make sure that you are logged in to a GitHub account that has access to the following fork repositories:  
+
+* Flusight forecast repository (CEPH fork): [https://github.com/paulocv/Flusight-forecast-data](https://github.com/paulocv/Flusight-forecast-data)
 
 * COVID-19 forecast repository (CEPH fork): [https://github.com/paulocv/covid19-forecast-hub](https://github.com/paulocv/covid19-forecast-hub)
 
