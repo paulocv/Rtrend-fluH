@@ -122,8 +122,8 @@ def main():
         # # Dynamic ramp
         r1_start=0.8,
         r2_start=1.6,
-        r1_end=0.70,   # R_new Value to which R = 1 is converted
-        r2_end=1.4,    # R_new Value to which R = 2 is converted
+        r1_end=0.60,   # R_new Value to which R = 1 is converted
+        r2_end=1.2,    # R_new Value to which R = 2 is converted
 
         # Rtop ramp extra params
         rmean_top=1.40,  # (Obs: Starting value, but it is decreased at each pass, including the first)
@@ -404,6 +404,10 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
     # --- Method decision regarding the cumulative hospitalizations in the ROI
     # OBS: TRY TO KEEP A SINGLE IF/ELIF CHAIN for better clarity of the choice!
 
+    # TODO: hawaii normal
+    if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Rhode Island", "West Virginia"]:
+        exd.notes = "use_rnd_normal"
+
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
         synth_method = synth.random_normal_synth
         fc.synth_name = exd.method = f"rnd_normal_{exd.synth_params['center']:0.2f}"
@@ -426,6 +430,14 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
         # -()- Dynamic ramp
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp" + (exd.synth_params["i_saturate"] != -1) * "_sat"  #saturation
+
+        # -- TODO SMALL STATES EXCEPTION 2023/01/30
+        if exd.state_name in ["Alaska",  "Montana",
+                              "South Dakota", "Vermont", "Wyoming"]:
+            exd.synth_params["q_low"] = 0.49
+            exd.synth_params["q_hig"] = 0.51
+            # exd.method = "dynamic_ramp_SPECIAL"
+            fc.synth_name = "dynamic_ramp_SPECIAL"
 
     elif exd.notes == "use_static_ramp_rtop":
         exd.synth_params["rmean_top"] -= 0.05  # Has an initial value. Decreases at each pass.
