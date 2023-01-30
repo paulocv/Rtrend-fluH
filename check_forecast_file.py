@@ -187,7 +187,7 @@ def make_plots_for_all(cdc: CDCDataBunch, fore_df: pd.DataFrame, nweeks_past=6,
                                   CDC_QUANTILES_SEQ, state_name,
                                   i_ax=i_ax, num_quantiles=NUM_QUANTILES,
                                   insert_point=(last_day, last_val),
-                                  plot_trend=False)
+                                  plot_trend=False, bkg_color="#E8F8FF")
 
         print(f"  [{state_name}] ({i_ax + 1} of {num_locs})  |", end="")
         sys.stdout.flush()

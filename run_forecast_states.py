@@ -713,7 +713,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         # Plot function
         vis.plot_ct_past_and_fore(ax, post.fore_time_labels, post.weekly_quantiles, factual_ct, post.quantile_seq,
                                   state_name, i_ax, post.synth_name if write_synth_names else None, post.num_quantiles,
-                                  ct_color, (post.day_pres, last_val), plot_trend=False)
+                                  ct_color, (post.day_pres, last_val), plot_trend=False, bkg_color="#E8F8FF")
 
         print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
 
@@ -740,7 +740,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
 
         vis.plot_ct_past_and_fore(ax, us.fore_time_labels, us.weekly_quantiles, _factual_ct, CDC_QUANTILES_SEQ,
                                   "US", None, None, us.num_quantiles, _ct_color, (us.day_pres, _last_val),
-                                  plot_trend=False)
+                                  plot_trend=False, bkg_color="#E8F8FF")
         print(f"   [US] Forecast plotted ()")
 
     # --- Plot postprocess and export
@@ -764,6 +764,8 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         ax.plot(post.t_daily, post.float_data_daily, "-", label="Float interp.")
         ax.plot(post.t_daily, post.ct_past, "o", label="Int interp.", ms=1)
         ax.text(0.05, 0.9, f"{i_ax+1}) {state_name}", transform=ax.transAxes)
+
+        ax.set_facecolor("#E8F8FF")
 
         print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
 
@@ -804,6 +806,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         # Axes configuration
         vis.rotate_ax_labels(ax)
         ax.set_ylim(0.0, 3.1)
+        ax.set_facecolor("#E8F8FF")
         print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
 
     def task(chunk):
