@@ -131,8 +131,8 @@ def main():
 
         # Random normal params
         seed=10,
-        center=1.0,
-        sigma=0.05,
+        center=0.95,
+        sigma=0.025,
         num_samples=1000  # Use this instead of the MCMC ensemble size.
     )
 
@@ -404,8 +404,9 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
     # --- Method decision regarding the cumulative hospitalizations in the ROI
     # OBS: TRY TO KEEP A SINGLE IF/ELIF CHAIN for better clarity of the choice!
 
-    # TODO: hawaii normal
-    if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Rhode Island", "West Virginia"]:
+    # TODO End-of-season normals
+    if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Montana",
+                          "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska"]:
         exd.notes = "use_rnd_normal"
 
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
@@ -431,9 +432,8 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp" + (exd.synth_params["i_saturate"] != -1) * "_sat"  #saturation
 
-        # -- TODO SMALL STATES EXCEPTION 2023/01/30
-        if exd.state_name in ["Alaska",  "Montana",
-                              "South Dakota", "Vermont", "Wyoming"]:
+        # -- TODO SMALL STATES EXCEPTION 2023/01/30 and 2023/02/06
+        if exd.state_name in ["South Dakota", "Vermont", "Wyoming"]:
             exd.synth_params["q_low"] = 0.49
             exd.synth_params["q_hig"] = 0.51
             # exd.method = "dynamic_ramp_SPECIAL"
@@ -468,7 +468,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
         # -()- If rtop was already reduced many times (would be an infinite loop), relies on a random normal
         if exd.synth_params["rmean_top"] < 0.9:
             exd.stage, exd.notes = "r_synth", "use_rnd_normal"
-            exd.synth_params["center"] = 1.1  # Arbitrarily chosen
+            exd.synth_params["center"] = 1.0  # Arbitrarily chosen
             return
 
         # -()- Call another synth with the Rtop method.
