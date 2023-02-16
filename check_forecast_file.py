@@ -26,6 +26,7 @@ from toolbox.plot_tools import make_axes_seq
 
 
 # colorama.just_fix_windows_console()  # Requires colorama 0.4.6. the legacy colorama.init() is unsafe.
+STD_TRUTH_FILE = "hosp_data/truth-Incident Hospitalizations.csv"
 
 
 def main():
@@ -36,7 +37,7 @@ def main():
     # ------------------------------------------------------------------------------------------------------------------
 
     cl_args = parse_args()
-    cdc, fore_df = import_data(cl_args.fname)
+    cdc, fore_df = import_data(cl_args.fname, cl_args.truth_file)
 
     if fore_df is None:
         print("Quitting the program...")
@@ -56,6 +57,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("fname", help="Path to the forecast output file to check.")  # Mandatory argument.
+    parser.add_argument("-t", "--truth-file", help="(Optional) Alternative path to the truth data file. "
+                                                   f"Default is {STD_TRUTH_FILE}.", default=STD_TRUTH_FILE)
     parser.add_argument("-r", "--rename", action="store_true", help="Creates a copy of the forecast file with "
                                                                     "the name requested by CDC, based in the current"
                                                                     " deadline.")
@@ -63,7 +66,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def import_data(fore_fname, hosp_fname="hosp_data/truth-Incident Hospitalizations.csv"):
+def import_data(fore_fname, hosp_fname=STD_TRUTH_FILE):
 
     # --- Read each file
     print("Reading files...")
