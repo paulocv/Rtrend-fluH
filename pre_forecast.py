@@ -68,8 +68,8 @@ def check_and_compare_environment():
 
     # --- Check existence
     if not conda_env_exists(ENV_NAME):
-        print(f"Hey, I did not find a conda environment called {ENV_NAME}. Please run 'python setup.py' and then "
-              f"run this script again.")
+        print(Fore.RED + f"Hey, I did not find a conda environment called {ENV_NAME}. Please run 'python setup.py' and "
+              f"then run this script again." + Style.RESET_ALL)
         print("Quitting now...")
         sys.exit(1)
 
@@ -79,8 +79,8 @@ def check_and_compare_environment():
     active_env = conda_info["active_prefix_name"]
 
     if active_env != ENV_NAME:
-        print(f"Hey, currently active conda environment ({active_env}) is not the expected one ({ENV_NAME}).")
-        print("Please run 'source activate_env.sh' first, then rerun this script.")
+        print(Fore.RED +f"Hey, currently active conda environment ({active_env}) is not the expected one ({ENV_NAME}).")
+        print("Please run 'source activate_env.sh' first, then rerun this script." + Style.RESET_ALL)
         print("Quitting now...")
         sys.exit(1)
 
