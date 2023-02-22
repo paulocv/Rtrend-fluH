@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import sys
 
+from colorama import Fore, Style
 # from collections import defaultdict
 from matplotlib.backends.backend_pdf import PdfPages
 # from pathos.multiprocessing import ProcessPool
@@ -89,7 +90,7 @@ def main():
         poly_degree=3,
 
         # Lowpass params
-        cutoff=0.10,
+        cutoff=0.20,
         filt_order=2,
 
         # Rolling average params
@@ -153,7 +154,7 @@ def main():
 
     # --- Program parameters
     cdc_data_fname = "hosp_data/daily_truth-Incident Hospitalizations.csv"
-    # cdc_data_fname = "hosp_data/past_daily_BKP/daily_truth-Incident Hospitalizations_MYFIRST.csv"
+    # cdc_data_fname = "hosp_data/past_daily_BKP/daily_truth-Incident Hospitalizations_2023-02-20.csv"
     # print("##############using old file!!!! #############!!!!!!!!")
     cdc_out_fname = "forecast_out/daily_latest.csv"
     do_export = True
@@ -264,7 +265,18 @@ def preprocess_cdc_data(cdc: CDCDataBunch, week_last, week_roi_start, pre_roi_le
     if week_roi_start >= week_last:
         raise ValueError(f"Hey, ROI start {week_roi_start.date()} must be prior to present week {week_last.date()}.")
 
-    print(f"Past ROI: from {week_roi_start.date()} to {week_last.date()}")
+    # Rounds the ROI borders to the EpiWeek they belong to
+    week_last = get_epiweek_label_from_id(get_epiweek_unique_id(week_last))
+    week_roi_start = get_epiweek_label_from_id(get_epiweek_unique_id(week_roi_start))
+
+    # Check if rounded dates are present in data:
+    if week_last not in cdc.data_time_labels:
+        raise ValueError(Fore.RED +
+                         f"Hey, the epiweek given by the (rounded) label {week_last.date()} is incomplete or "
+                         f"missing in the truth file. It may be that the truth file contains data for the current "
+                         f"week; in this case, just use week_last = -2." + Style.RESET_ALL)
+
+    print(f"Past ROI (rounded to nearest epiweek): from {week_roi_start.date()} to {week_last.date()}")
     cdc.day_roi_start = week_roi_start
     cdc.day_pres = week_last + pd.Timedelta(1, "D")  # Adds one to make "pres" the first day to forecast
 
@@ -424,8 +436,8 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
     # ---------------------------
 
     # PALEATIVE: add cases to the latest days, preventing absolute zeros.
-    if fc.ct_past[-5:].max() == 0:
-        fc.ct_past[-2] = 1
+    if fc.ct_past[-4:].max() <= 1:
+        fc.ct_past[-2] += 1
 
     # Cumulative hospitalizations inside ROI
     sum_roi = exd.state_series.sum()
@@ -435,7 +447,10 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
 
     # TODO End-of-season normals
     if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Montana",
-                          "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont"]:
+                          "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont",
+                          "New Mexico", "Nebraska", "Wisconsin", "Wyoming", "Missouri", "Massachusetts", "Maryland",
+                          "South Dakota", "North Dakota", "Nevada",
+                          ]:
         exd.notes = "use_rnd_normal"
 
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
@@ -455,19 +470,24 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp" + (exd.synth_params["i_saturate"] != -1) * "_sat"  # saturation
 
-        if sum_roi > 2000 or exd.state_name in ["Indiana", "Michigan", "Ohio", "Oklahoma"]:  # Large numbers
+        if sum_roi > 2000 or exd.state_name in ["Indiana", "Michigan", "Ohio", "Oklahoma", "Kansas", "Arizona",
+                                                "Illinois", "Colorado"]:  # Large numbers
             # Increase width of the sample.
             exd.synth_params["q_low"] = 0.01
             exd.synth_params["q_hig"] = 0.99
-            synth_method = synth.sorted_dynamic_ramp
             fc.synth_name = exd.method = "dynamic_ramp_highc" + (exd.synth_params["i_saturate"] != -1) * "_sat"
 
-        # -- TODO SMALL STATES EXCEPTION 2023/01/30 and 2023/02/06
-        if exd.state_name in ["South Dakota", "Vermont", "Wyoming"]:
-            exd.synth_params["q_low"] = 0.49
-            exd.synth_params["q_hig"] = 0.51
-            # exd.method = "dynamic_ramp_SPECIAL"
-            fc.synth_name = "dynamic_ramp_SPECIAL"
+        if exd.state_name in ["Alabama"]:  # 2023-02-20 Reduce width by the end of season
+            exd.synth_params["q_low"] = 0.45
+            exd.synth_params["q_hig"] = 0.55
+            fc.synth_name = exd.method = "dynamic_ramp_sharper" + (exd.synth_params["i_saturate"] != -1) * "_sat"
+
+        # # -- TODO SMALL STATES EXCEPTION 2023/01/30 and 2023/02/06
+        # if exd.state_name in ["South Dakota", "Vermont", "Wyoming"]:
+        #     exd.synth_params["q_low"] = 0.49
+        #     exd.synth_params["q_hig"] = 0.51
+        #     # exd.method = "dynamic_ramp_SPECIAL"
+        #     fc.synth_name = "dynamic_ramp_SPECIAL"
 
     elif exd.notes == "use_static_ramp_rtop":
         exd.synth_params["rmean_top"] -= 0.05  # Has an initial value. Decreases at each pass.
@@ -527,23 +547,6 @@ def callback_c_reconstruction(exd: ForecastExecutionData, fc: CovHospForecastOut
     # fc.ct_fore2d_weekly = interp.daily_to_weekly(fc.ct_fore2d, dtype=float)  # Aggregate from day 0
     fc.ct_fore2d_weekly, fc.fore_weekly_time_labels = \
         interp.daily_to_epiweeks(fc.ct_fore2d, fc.fore_daily_tlabels, dtype=float)
-
-    # # ------------------------
-    # # WATCH TEST TODO ERASE
-    # if exd.state_name == "Texas":
-    #     pass
-    #     fig, ax = plt.subplots()
-    #
-    #     truth_daily = exd.state_series
-    #     ax.plot(truth_daily, label="Past truth")
-    #     ax.plot(fc.past_daily_tlabels, fc.ct_past, label="Preproc Past Data")
-    #
-    #     ax.plot(fc.fore_daily_tlabels, np.median(fc.ct_fore2d, axis=0), "--", label="Fore median")
-    #     ax.fill_between(fc.fore_daily_tlabels,
-    #                     np.quantile(fc.ct_fore2d, 0.25, axis=0), np.quantile(fc.ct_fore2d, 0.75, axis=0),
-    #                     alpha=0.25)
-    #
-    #     plt.show()
 
     # --- Filter series that exceeded ct_cap
     if exd.ct_cap is not None and can_apply_ct_cap:
@@ -803,7 +806,8 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         _ct_color = "C1" if us.day_pres < cdc.data_time_labels[-1] else "C0"  # C1 if there's a future week available
 
         vis.plot_ct_past_and_fore(ax, us.fore_time_labels, us.weekly_quantiles, _factual_ct, CDC_QUANTILES_SEQ,
-                                  "US", None, None, us.num_quantiles, _ct_color, (us.day_pres, _last_val),
+                                  "US", None, None, us.num_quantiles, _ct_color, (us.day_pres - pd.Timedelta("1d"),
+                                                                                  _last_val),
                                   plot_trend=False, bkg_color="#E8F8FF")
         print(f"   [US] Forecast plotted ()")
 
@@ -895,6 +899,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         ax.text(0.05, 0.9, f"{i_ax+1}) {state_name}", transform=ax.transAxes)
         if write_synth_names:
             ax.text(0.05, 0.8, post.synth_name, transform=ax.transAxes)
+        ax.plot([post.past_daily_tlabels[0], post.fore_daily_tlabels[-1]], [1, 1], "k--", alpha=0.25)
 
         # Axes configuration
         vis.rotate_ax_labels(ax)

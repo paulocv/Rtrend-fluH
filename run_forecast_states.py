@@ -67,7 +67,7 @@ def main():
 
     # -()- Current season
     week_pres = -1  # Last week
-    week_roi_start = week_pres - 5  # pd.Timestamp("2022-08-29")
+    week_roi_start = week_pres - 6  # pd.Timestamp("2022-08-29")
 
     # --- Forecast params
     # General
@@ -392,8 +392,6 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
     # ---------------------------
     # Exception states (these would have exceedingly explosive outbreaks with the default ramp).
 
-    # exd.method = "STD"
-
     # PALEATIVE: add cases to the latest days, preventing absolute zeros.
     if fc.ct_past[-3:].max() == 0:
         fc.ct_past[-2] = 1
@@ -406,7 +404,8 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
 
     # TODO End-of-season normals
     if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Montana",
-                          "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont"]:
+                          "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont",
+                          "Wisconsin"]:
         exd.notes = "use_rnd_normal"
 
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
@@ -417,13 +416,6 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
             exd.synth_params["center"] = 0.8
             exd.synth_params["sigma"] = 0.02
 
-    # elif exd.notes == "NONE" and sum_roi > 1600:        # --- Large numbers: could increase width of the sample
-    elif exd.notes == "NONE" and (sum_roi > 1600 or exd.state_name in ["Indiana", "Michigan", "Ohio", "Oklahoma"]):        # --- TODO: ADDED extra states
-        exd.synth_params["q_low"] = 0.01
-        exd.synth_params["q_hig"] = 0.99
-        synth_method = synth.sorted_dynamic_ramp
-        fc.synth_name = exd.method = "dynamic_ramp_highc" + (exd.synth_params["i_saturate"] != -1) * "_sat"  #saturation
-
     elif exd.notes == "NONE":  # DEFAULT CONDITION, does not fall into any of the previous
         # # -()- Static ramp
         # synth_method = synth.sorted_bent_mean_ensemble
@@ -432,6 +424,13 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
         # -()- Dynamic ramp
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp" + (exd.synth_params["i_saturate"] != -1) * "_sat"  #saturation
+
+        if sum_roi > 1600 or exd.state_name in ["Indiana", "Michigan", "Ohio", "Oklahoma"]:  # Large numbers
+            # Increase width of the sample.
+            exd.synth_params["q_low"] = 0.01
+            exd.synth_params["q_hig"] = 0.99
+            synth_method = synth.sorted_dynamic_ramp
+            fc.synth_name = exd.method = "dynamic_ramp_highc" + (exd.synth_params["i_saturate"] != -1) * "_sat"
 
         # -- TODO SMALL STATES EXCEPTION 2023/01/30 and 2023/02/06
         if exd.state_name in ["South Dakota", "Vermont", "Wyoming"]:
@@ -775,7 +774,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         ct_past: pd.Series = preproc_dict[state_name]
         ax.plot(*interp.weekly_to_daily_uniform(ct_past.index, ct_past.values), label="Unif. interp.")
         ax.plot(post.t_daily, post.float_data_daily, "-", label="Float interp.")
-        ax.plot(post.t_daily, post.ct_past, "o", label="Int interp.", ms=1)
+        ax.plot(post.t_daily, post.ct_past, "o", label="Int interp.", ms=2)
         ax.text(0.05, 0.9, f"{i_ax+1}) {state_name}", transform=ax.transAxes)
 
         ax.set_facecolor("#E8F8FF")
@@ -815,6 +814,7 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         ax.text(0.05, 0.9, f"{i_ax+1}) {state_name}", transform=ax.transAxes)
         if write_synth_names:
             ax.text(0.05, 0.8, post.synth_name, transform=ax.transAxes)
+        ax.plot([post.past_daily_tlabels[0], post.fore_daily_tlabels[-1]], [1, 1], "k--", alpha=0.25)
 
         # Axes configuration
         vis.rotate_ax_labels(ax)
