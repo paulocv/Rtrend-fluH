@@ -123,10 +123,10 @@ def main():
         i_saturate=-1,   # -2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
 
         # Dynamic ramp
-        r1_start=0.8,
+        r1_start=1.0,
         r2_start=1.6,
-        r1_end=0.60,   # R_new Value to which R = 1 is converted
-        r2_end=1.2,    # R_new Value to which R = 2 is converted
+        r1_end=0.50,   # R_new Value to which R = 1 is converted
+        r2_end=1.0,    # R_new Value to which R = 2 is converted
 
         # # Dynamic ramp
         # r1_start=1.0,
@@ -276,9 +276,10 @@ def preprocess_cdc_data(cdc: CDCDataBunch, week_last, week_roi_start, pre_roi_le
                          f"missing in the truth file. It may be that the truth file contains data for the current "
                          f"week; in this case, just use week_last = -2." + Style.RESET_ALL)
 
-    print(f"Past ROI (rounded to nearest epiweek): from {week_roi_start.date()} to {week_last.date()}")
     cdc.day_roi_start = week_roi_start
     cdc.day_pres = week_last + pd.Timedelta(1, "D")  # Adds one to make "pres" the first day to forecast
+    print(f"Past ROI (rounded to nearest epiweek): from {week_roi_start.date()} to {week_last.date()}")
+    print(f"Day present = {cdc.day_pres.date()}")
 
     # Preprocessing
     # -------------
