@@ -59,8 +59,8 @@ def main():
     # For this version, ROI is defined in weeks but then converted to days.
 
     # -()- Current season
-    week_last = -1
-    week_roi_start = week_last - 8  # pd.Timestamp("2022-08-29")
+    week_last = -2
+    week_roi_start = week_last - 10  # pd.Timestamp("2022-08-29")
 
     pre_roi_len = 15  # Length of the preprocessing ROI in weeks. Reduced to avoid off-season estimation.
 
@@ -124,8 +124,8 @@ def main():
 
         # Dynamic ramp
         r1_start=1.0,
-        r2_start=1.6,
-        r1_end=0.50,   # R_new Value to which R = 1 is converted
+        r2_start=1.3,
+        r1_end=0.8,   # R_new Value to which R = 1 is converted
         r2_end=1.0,    # R_new Value to which R = 2 is converted
 
         # # Dynamic ramp
@@ -140,8 +140,8 @@ def main():
 
         # Random normal params
         seed=10,
-        center=0.95,
-        sigma=0.025,
+        center=0.99,
+        sigma=0.050,
         num_samples=1000,  # Use this instead of the MCMC ensemble size.
     )
 
@@ -450,7 +450,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
     if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Montana",
                           "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont",
                           "New Mexico", "Nebraska", "Wisconsin", "Wyoming", "Missouri", "Massachusetts", "Maryland",
-                          "South Dakota", "North Dakota", "Nevada",
+                          "South Dakota", "North Dakota", "Nevada", "New Hampshire"
                           ]:
         exd.notes = "use_rnd_normal"
 
@@ -471,11 +471,11 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp" + (exd.synth_params["i_saturate"] != -1) * "_sat"  # saturation
 
-        if sum_roi > 2000 or exd.state_name in ["Indiana", "Michigan", "Ohio", "Oklahoma", "Kansas", "Arizona",
+        if sum_roi > 1300 or exd.state_name in ["Indiana", "Michigan", "Ohio", "Oklahoma", "Kansas", "Arizona",
                                                 "Illinois", "Colorado"]:  # Large numbers
             # Increase width of the sample.
-            exd.synth_params["q_low"] = 0.01
-            exd.synth_params["q_hig"] = 0.99
+            exd.synth_params["q_low"] = 0.00
+            exd.synth_params["q_hig"] = 1.00
             fc.synth_name = exd.method = "dynamic_ramp_highc" + (exd.synth_params["i_saturate"] != -1) * "_sat"
 
         if exd.state_name in ["Alabama"]:  # 2023-02-20 Reduce width by the end of season
@@ -777,6 +777,8 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         vis.plot_ct_past_and_fore(ax, post.fore_time_labels, post.weekly_quantiles, factual_ct, post.quantile_seq,
                                   state_name, i_ax, post.synth_name if write_synth_names else None, post.num_quantiles,
                                   ct_color, (post.day_pres, last_val), plot_trend=False, bkg_color="#E8F8FF")
+
+        ax.set_xlim(post.day_0 + pd.Timedelta("1w"), post.day_fore + pd.Timedelta("1d"))
 
         print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
 
