@@ -5,11 +5,11 @@
 This is the source code for the Rtrend method for Influenza hospitalizations forecast, designed for the [CDC Flusight challenge](https://www.cdc.gov/flu/weekly/flusight/how-flu-forecasting.htm) by the CEPH team at Indiana University and MOBS Lab at Northeastern University.
 
 Team members:
-- Marco Ajelli 
 - Paulo C. Ventura
 - Maria Litvinova
 - Allisandra G. Kummer
 - Alessandro Vespignani
+- Marco Ajelli 
 
 ## Setup and usage 
 
