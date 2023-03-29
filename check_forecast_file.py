@@ -32,7 +32,7 @@ STD_TRUTH_FILE = "hosp_data/truth-Incident Hospitalizations.csv"
 def main():
 
     # Hospitalization truth data
-    nweeks_past = 6  # Defines the ROI to plot past data
+    nweeks_past = 10  # Defines the ROI to plot past data
 
     # ------------------------------------------------------------------------------------------------------------------
 

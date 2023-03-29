@@ -68,8 +68,8 @@ def main():
 
     # --- Forecast params
     # General
-    nweeks_fore = NUM_WEEKS_FORE  # Number of weeks ahead to forecast. Add one to account for daily data delay.
-    export_range = np.arange(NUM_WEEKS_FORE)  # Weeks (0 = day_pres) to export to file.
+    nweeks_fore = NUM_WEEKS_FORE   # Number of weeks ahead to forecast. Add one to account for daily data delay.
+    export_range = np.arange(nweeks_fore)  # Weeks (0 = day_pres) to export to file.
     nsamples_us = 1000  # Number of C(t) samples to take from each state for building the US forecast.
 
     tg_params = dict(  # Mean 3.0 IQR 1.4 to 5.1
@@ -97,7 +97,7 @@ def main():
         rollav_window=0,  # 4 * WEEKLEN,  # Number of weeks to take rolling average of. Use 0 or None to deactivate.
 
         # ----- Noise synthesis (for reconstruction phase)
-        noise_coef=1.2,  # Multiply estimated noise by this factor for the synthesis
+        noise_coef=0.0,  # Multiply estimated noise by this factor for the synthesis
         noise_seed=10,
     )
 
@@ -114,25 +114,25 @@ def main():
     # R(t) Synthesis
     synth_params = dict(
         # Ramp params
-        q_low=0.25,      # Static ramp: low quantile
-        q_hig=0.75,      # Static ramp: high quantile
+        q_low=0.30,      # Static ramp: low quantile
+        q_hig=0.70,      # Static ramp: high quantile
         ndays_past=14,   # Number of days (backwards) to consider in synthesis.
         r_max=1.8,       # Clamp up to these R values (for the average)
         k_start=0.95,    # Ramp method: starting coefficient
         k_end=0.85,      # Ramp method: ending coefficient
         i_saturate=-1,   # -2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
 
-        # Dynamic ramp
-        r1_start=1.0,
-        r2_start=1.3,
-        r1_end=0.8,   # R_new Value to which R = 1 is converted
-        r2_end=1.0,    # R_new Value to which R = 2 is converted
-
         # # Dynamic ramp
         # r1_start=1.0,
-        # r2_start=1.5,
-        # r1_end=0.8,  # R_new Value to which R = 1 is converted
-        # r2_end=1.0,  # R_new Value to which R = 2 is converted
+        # r2_start=1.3,
+        # r1_end=0.8,   # R_new Value to which R = 1 is converted
+        # r2_end=1.0,    # R_new Value to which R = 2 is converted
+
+        # Dynamic ramp  # FLAT (still dynamic though)!!
+        r1_start=0.95,
+        r2_start=1.1,
+        r1_end=0.95,  # R_new Value to which R = 1 is converted
+        r2_end=1.1,  # R_new Value to which R = 2 is converted
 
         # Rtop ramp extra params
         rmean_top=1.40,  # (Obs: Starting value, but it is decreased at each pass, including the first)
@@ -140,8 +140,8 @@ def main():
 
         # Random normal params
         seed=10,
-        center=0.99,
-        sigma=0.050,
+        center=1.015,
+        sigma=0.020,
         num_samples=1000,  # Use this instead of the MCMC ensemble size.
     )
 
@@ -446,21 +446,19 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
     # --- Method decision regarding the cumulative hospitalizations in the ROI
     # OBS: TRY TO KEEP A SINGLE IF/ELIF CHAIN for better clarity of the choice!
 
-    # TODO End-of-season normals
-    if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Montana",
-                          "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont",
-                          "New Mexico", "Nebraska", "Wisconsin", "Wyoming", "Missouri", "Massachusetts", "Maryland",
-                          "South Dakota", "North Dakota", "Nevada", "New Hampshire"
-                          ]:
-        exd.notes = "use_rnd_normal"
+    # TODO: NORMALS FOR EVERYONE!!!!!! 2023-03-21
+    exd.notes = "use_rnd_normal"
+
 
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
-        synth_method = synth.random_normal_synth
-        fc.synth_name = exd.method = f"rnd_normal_{exd.synth_params['center']:0.2f}"
 
         if exd.state_name == "Virgin Islands":  # Chose params for more conservative estimates.
             exd.synth_params["center"] = 0.8
             exd.synth_params["sigma"] = 0.02
+
+        # Random normal
+        synth_method = synth.random_normal_synth
+        fc.synth_name = exd.method = f"rnd_normal_{exd.synth_params['center']:0.2f}"
 
     elif exd.notes == "NONE":  # DEFAULT CONDITION, does not fall into any of the previous
         # # -()- Static ramp
@@ -470,25 +468,6 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
         # -()- Dynamic ramp
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp" + (exd.synth_params["i_saturate"] != -1) * "_sat"  # saturation
-
-        if sum_roi > 1300 or exd.state_name in ["Indiana", "Michigan", "Ohio", "Oklahoma", "Kansas", "Arizona",
-                                                "Illinois", "Colorado"]:  # Large numbers
-            # Increase width of the sample.
-            exd.synth_params["q_low"] = 0.00
-            exd.synth_params["q_hig"] = 1.00
-            fc.synth_name = exd.method = "dynamic_ramp_highc" + (exd.synth_params["i_saturate"] != -1) * "_sat"
-
-        if exd.state_name in ["Alabama"]:  # 2023-02-20 Reduce width by the end of season
-            exd.synth_params["q_low"] = 0.45
-            exd.synth_params["q_hig"] = 0.55
-            fc.synth_name = exd.method = "dynamic_ramp_sharper" + (exd.synth_params["i_saturate"] != -1) * "_sat"
-
-        # # -- TODO SMALL STATES EXCEPTION 2023/01/30 and 2023/02/06
-        # if exd.state_name in ["South Dakota", "Vermont", "Wyoming"]:
-        #     exd.synth_params["q_low"] = 0.49
-        #     exd.synth_params["q_hig"] = 0.51
-        #     # exd.method = "dynamic_ramp_SPECIAL"
-        #     fc.synth_name = "dynamic_ramp_SPECIAL"
 
     elif exd.notes == "use_static_ramp_rtop":
         exd.synth_params["rmean_top"] -= 0.05  # Has an initial value. Decreases at each pass.
@@ -513,7 +492,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
 
     if fc.rt_fore2d.shape[0] == 0:  # Problem: no R value satisfied the filter criterion
         # Action: repeat the synth right away
-        fc.synth_name = exd.method = "rnd_normal"
+        fc.synth_name = exd.method = "rnd_normal_after"
         exd.log_current_pipe_step()
 
         fc.rt_fore2d = synth.random_normal_synth(fc.rtm, fc.ct_past, fc.ndays_fore, **exd.synth_params)
