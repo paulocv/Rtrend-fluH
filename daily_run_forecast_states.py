@@ -90,7 +90,7 @@ def main():
         poly_degree=3,
 
         # Lowpass params
-        cutoff=0.20,
+        cutoff=0.05,
         filt_order=2,
 
         # Rolling average params
@@ -449,6 +449,10 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
     # TODO: NORMALS FOR EVERYONE!!!!!! 2023-03-21
     exd.notes = "use_rnd_normal"
 
+    # TODO Puerto Rico has a surge - 2023-04-03
+    if exd.state_name in ["Puerto Rico"]:
+        exd.notes = "NONE"
+
 
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
 
@@ -756,6 +760,8 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
         vis.plot_ct_past_and_fore(ax, post.fore_time_labels, post.weekly_quantiles, factual_ct, post.quantile_seq,
                                   state_name, i_ax, post.synth_name if write_synth_names else None, post.num_quantiles,
                                   ct_color, (post.day_pres, last_val), plot_trend=False, bkg_color="#E8F8FF")
+        # EXTRA: plot multiplied preprocessed series
+        ax.plot(post.past_daily_tlabels, WEEKLEN * post.float_data_daily, "--")
 
         ax.set_xlim(post.day_0 + pd.Timedelta("1w"), post.day_fore + pd.Timedelta("1d"))
 
