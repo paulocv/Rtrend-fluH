@@ -81,7 +81,7 @@ def main():
     # --- Preprocessing: denoise and noise analysis
     preproc_params = dict(
         method="lowpass",  # polyfit, lowpass, rollav, none
-        noise_type="normal",  # normal, weekday_normal, none
+        noise_type="none",  # normal, weekday_normal, none
         use_denoised=True,  # Whether to use the denoised data for the forecast
         use_pre_roi=True,  # Use the preprocessing ROI for the noise estimation.
 
@@ -140,9 +140,9 @@ def main():
 
         # Random normal params
         seed=10,
-        center=1.015,
-        sigma=0.020,
-        num_samples=1000,  # Use this instead of the MCMC ensemble size.
+        center=1.010,
+        sigma=0.010,
+        num_samples=500,  # Use this instead of the MCMC ensemble size.
     )
 
     # C(t) reconstruction
@@ -527,6 +527,10 @@ def callback_c_reconstruction(exd: ForecastExecutionData, fc: CovHospForecastOut
     # Incorporate noise uncertainty
     fc.ct_fore2d = fc.noise_obj.generate(fc.ct_fore2d, fc.fore_daily_tlabels)
 
+    # WATCH
+    if exd.state_name == "Utah":
+        print(np.median(fc.ct_fore2d, axis=0))
+
     # # Aggregate from daily to weekly
     # fc.ct_fore2d_weekly = interp.daily_to_weekly(fc.ct_fore2d, dtype=float)  # Aggregate from day 0
     fc.ct_fore2d_weekly, fc.fore_weekly_time_labels = \
@@ -761,7 +765,8 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
                                   state_name, i_ax, post.synth_name if write_synth_names else None, post.num_quantiles,
                                   ct_color, (post.day_pres, last_val), plot_trend=False, bkg_color="#E8F8FF")
         # EXTRA: plot multiplied preprocessed series
-        ax.plot(post.past_daily_tlabels, WEEKLEN * post.float_data_daily, "--")
+        # ax.plot(post.past_daily_tlabels, WEEKLEN * post.float_data_daily, "--")
+        ax.plot(post.past_daily_tlabels, WEEKLEN * post.ct_past, "--")
 
         ax.set_xlim(post.day_0 + pd.Timedelta("1w"), post.day_fore + pd.Timedelta("1d"))
 
