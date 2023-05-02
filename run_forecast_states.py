@@ -129,11 +129,17 @@ def main():
         rmean_top=1.40,  # (Obs: Starting value, but it is decreased at each pass, including the first)
         max_width=0.15,
 
-        # Random normal params
+        # # Random normal params
+        # seed=10,
+        # center=0.95,
+        # sigma=0.025,
+        # num_samples=1000,  # Use this instead of the MCMC ensemble size.
+
+        # Random normal params – Off-season values
         seed=10,
-        center=0.95,
-        sigma=0.025,
-        num_samples=1000  # Use this instead of the MCMC ensemble size.
+        center=1.010,
+        sigma=0.010,
+        num_samples=500,  # Use this instead of the MCMC ensemble size.
     )
 
     # C(t) reconstruction
@@ -402,11 +408,14 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
     # --- Method decision regarding the cumulative hospitalizations in the ROI
     # OBS: TRY TO KEEP A SINGLE IF/ELIF CHAIN for better clarity of the choice!
 
-    # TODO End-of-season normals
-    if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Montana",
-                          "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont",
-                          "Wisconsin"]:
-        exd.notes = "use_rnd_normal"
+    # TODO: NORMALS FOR EVERYONE!!!!!! 2023-03-21
+    exd.notes = "use_rnd_normal"
+
+    # # TODO End-of-season normals
+    # if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Montana",
+    #                       "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont",
+    #                       "Wisconsin"]:
+    #     exd.notes = "use_rnd_normal"
 
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
         synth_method = synth.random_normal_synth

@@ -90,7 +90,7 @@ def main():
         poly_degree=3,
 
         # Lowpass params
-        cutoff=0.05,
+        cutoff=0.15,
         filt_order=2,
 
         # Rolling average params
@@ -526,10 +526,6 @@ def callback_c_reconstruction(exd: ForecastExecutionData, fc: CovHospForecastOut
 
     # Incorporate noise uncertainty
     fc.ct_fore2d = fc.noise_obj.generate(fc.ct_fore2d, fc.fore_daily_tlabels)
-
-    # WATCH
-    if exd.state_name == "Utah":
-        print(np.median(fc.ct_fore2d, axis=0))
 
     # # Aggregate from daily to weekly
     # fc.ct_fore2d_weekly = interp.daily_to_weekly(fc.ct_fore2d, dtype=float)  # Aggregate from day 0
