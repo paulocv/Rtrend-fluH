@@ -27,6 +27,7 @@ from toolbox.plot_tools import make_axes_seq
 
 # colorama.just_fix_windows_console()  # Requires colorama 0.4.6. the legacy colorama.init() is unsafe.
 STD_TRUTH_FILE = "hosp_data/truth-Incident Hospitalizations.csv"
+STD_CT_FIGNAME = "tmp_figs/ct_states_reconstructed.pdf"
 
 
 def main():
@@ -47,7 +48,7 @@ def main():
     print(fore_df)
 
     check_forecast_data(cdc, fore_df)
-    make_plots_for_all(cdc, fore_df, nweeks_past=nweeks_past)
+    make_plots_for_all(cdc, fore_df, nweeks_past=nweeks_past, plot_fname=cl_args.figname)
     copy_to_cdc_fname(cl_args)
     print_final_remarks()
 
@@ -62,6 +63,8 @@ def parse_args():
     parser.add_argument("-r", "--rename", action="store_true", help="Creates a copy of the forecast file with "
                                                                     "the name requested by CDC, based in the current"
                                                                     " deadline.")
+    parser.add_argument("-f", "--figname", default=STD_CT_FIGNAME,
+                        help="Path to which the reconstructed forecats figure should be exported.")
 
     return parser.parse_args()
 
@@ -153,7 +156,7 @@ def _reconstruct_quantiles(df: pd.DataFrame, state_name, locid):
 
 
 def make_plots_for_all(cdc: CDCDataBunch, fore_df: pd.DataFrame, nweeks_past=6,
-                       plot_fname="tmp_figs/ct_states_reconstructed.pdf"):
+                       plot_fname=STD_CT_FIGNAME):
     """ """
 
     print("\nRecreating plots for the data")
