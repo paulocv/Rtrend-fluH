@@ -140,7 +140,7 @@ def main():
 
         # Random normal params
         seed=10,
-        center=1.010,
+        center=1.015,
         sigma=0.010,
         num_samples=500,  # Use this instead of the MCMC ensemble size.
     )
