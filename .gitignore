@@ -14,6 +14,7 @@
 
 # Re-ignore specific py files
 calc_season_stats.py
+apagar.py
 
 # Sh scripts
 !activate_env.sh
