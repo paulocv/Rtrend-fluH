@@ -1,5 +1,13 @@
-from rtrend_forecast.srctest import *
+import sys
+import time
 
-print(THISCONST)
+import numpy as np
+from pathos.pools import ProcessPool
 
-print("Hiyn")
+
+def main():
+    pass
+
+
+if __name__ == '__main__':
+    main()
