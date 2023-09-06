@@ -147,18 +147,20 @@ def main():
     # post_weekly_coefs[0] = 0.6  # Thanksgiving underreporting effect
 
     # --- Program parameters
+    # -()- Use latest file
     cdc_data_fname = "hosp_data/daily_truth-Incident Hospitalizations.csv"
+    # # -()- Use an older backup file
     # cdc_data_fname = "hosp_data/past_daily_BKP/daily_truth-Incident Hospitalizations_2023-02-20.csv"
     # print("##############using old file!!!! #############!!!!!!!!")
+
     cdc_out_fname = "forecast_out/daily_latest.csv"
     do_export = True
     do_show_plots = False
-    write_synth_names = True
+    write_synth_names = True  # Whether Write the names of the synthesis methods in the plot panels
     ncpus = 6  # If 1, runs sequential. Otherwise, calls pathos.
 
     # --- DICTIONARY OF EXCEPTIONS - For states that require different parameters than the default.
-
-    exception_dict = dict()
+    exception_dict = dict()  # CURRENTLY NOT IN USE
 
     # --- STATE SELECTION -
     # # Run only for these locations, for testing purposes
@@ -168,7 +170,7 @@ def main():
     # Do not directly run for these locations
     exclude_states = ["US", "Virgin Islands"]
 
-    # PRELIMINARIES
+    # # PRELIMINARY STEPS
     # ------------------------------------------------------------------------------------------------------------------
     if not do_export:
         print(10 * "#" + " EXPORT SWITCH IS OFF " + 10 * "#")
@@ -213,7 +215,7 @@ def main():
         return postprocess_state_forecast(fc, state_name, i_s, cdc, nweeks_fore, nsamples_us,
                                           post_coefs=post_weekly_coefs)
 
-    # RUN LINE - PARALLEL OR SEQUENCE
+    # RUN COMMAND - PARALLEL OR SEQUENCE
     result_list = map_parallel_or_sequential(task, enumerate(cdc.loc_names), ncpus=ncpus)
 
     # --- Construct the total US time series
@@ -244,6 +246,7 @@ def main():
 def preprocess_cdc_data(cdc: CDCDataBunch, week_last, week_roi_start, pre_roi_len, ct_cap_fac=3):
     """
     Splits dataset by state, crop ROI.
+    This procedure runs before the forecast pipeline.
     """
 
     # Argument handling
@@ -300,6 +303,7 @@ def preprocess_cdc_data(cdc: CDCDataBunch, week_last, week_roi_start, pre_roi_le
         if roi_df.shape[0] == 0 or pre_roi_df.shape[0] == 0:
             sys.stderr.write(f"\nHEY, empty dataset for state {state_name} in ROI.\n")
 
+        # Store results
         roi_dict[state_name] = roi_df
         pre_roi_dict[state_name] = pre_roi_df
 
@@ -312,6 +316,12 @@ def preprocess_cdc_data(cdc: CDCDataBunch, week_last, week_roi_start, pre_roi_le
 
 
 def callback_preprocessing(exd: ForecastExecutionData, fc: CovHospForecastOutput):
+    """Preprocessing of the state-level data.
+    This function:
+    - Extracts time-related quantities such as the present date, ROI start, time arrays, etc.
+    - Denoise the past data.
+    - Fits noise to a model.
+    """
 
     # Briefing
     # ---------------------------
@@ -377,6 +387,13 @@ def callback_preprocessing(exd: ForecastExecutionData, fc: CovHospForecastOutput
 
 
 def callback_r_estimation(exd: ForecastExecutionData, fc: CovHospForecastOutput):
+    """Estimation of R(t) (reproduction number) via Monte Carlo Markov Chain (MCMC), using state-level data.
+
+     This function:
+     - Creates a distribution of the generation time from given parameters.
+     - Calls the C program that runs the MCMC procedure
+     - Load the outputs of the MCMC procedure.
+     """
 
     # Briefing
     # ---------------------------
@@ -430,6 +447,13 @@ def callback_r_estimation(exd: ForecastExecutionData, fc: CovHospForecastOutput)
 
 
 def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
+    """Estimation of the future R(t) ensemble for a state.
+
+    This function:
+    - Fix data with no recent cases, preventing all-zero forecasts.
+    - Decides the method of synthesis and special-condition parameters.
+    - Synthesize a future R(t) ensemble.
+    """
     # Briefing
     # ---------------------------
 
@@ -491,7 +515,15 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
 
 
 def callback_c_reconstruction(exd: ForecastExecutionData, fc: CovHospForecastOutput):
+    """Construction of the future incidence (c(t)) series with a renewal equation.
 
+    This function:
+    - Calls the reconstruction method to produce the ensemble of c(t) trajectories.
+    - Incorporate the pre-estimated noise patterns.
+    - Aggregate daily trajectories into weekly values.
+    - Filter series by ct_cap, possibly calling another synthesis if the number
+      of remaining trajectories is too low.
+    """
     # Briefing
     # ----------------------------
     can_apply_ct_cap = (exd.notes != "no_filter")
@@ -537,7 +569,7 @@ def callback_c_reconstruction(exd: ForecastExecutionData, fc: CovHospForecastOut
 
 def forecast_state(state_name: str, state_series: pd.Series, preproc_series: pd.Series, nweeks_fore,
                    except_params, tg_params, preproc_params, mcmc_params, synth_params, recons_params, ct_cap=None):
-    """
+    """Runs the modular forecast pipeline for a given state-level data.
     """
     # PREAMBLE
     # ------------------------------------------------------------------------------------------------------------------
@@ -611,7 +643,7 @@ def forecast_state(state_name: str, state_series: pd.Series, preproc_series: pd.
 def postprocess_state_forecast(fc: CovHospForecastOutput, state_name, i_s, cdc: CDCDataBunch, nweeks_fore,
                                nsamples_us, post_coefs: np.ndarray = None):
     """
-    Prepare data for final aggregation and for plot reports.
+    Prepares data for final aggregation and for plot reports.
     Returns a ForecastPost object, which is lightweight and can be returned from the forecast loop to the main scope.
     """
 
@@ -659,6 +691,8 @@ def postprocess_state_forecast(fc: CovHospForecastOutput, state_name, i_s, cdc: 
 
 
 def postprocess_us(fc_list: list[ForecastPost], cdc: CDCDataBunch, nweeks_fore, nsamples_us, post_coefs=None):
+    """Aggregates the data from all states to construct the USA-level forecast.
+    """
     post = USForecastPost()
 
     # Cut ROI and determine key days based on the overall CDC data, so it's independent of any state.
@@ -694,6 +728,12 @@ def postprocess_us(fc_list: list[ForecastPost], cdc: CDCDataBunch, nweeks_fore, 
 
 def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us,
                      write_synth_names=True, ncols=3, nrows=3, ncpus=1):
+    """
+    Prepare visualization tables for the forecast in each state. The tables are exported to:
+    - `daily_ct_states.pdf` – Past and forecasted incidence c(t).
+    - `daily_rt_states.pdf` – Past and synthesized reproduction number R(t).
+    - `daily_preproc_state.pdf` – Raw and preprocessed past data.
+    """
 
     os.makedirs("tmp_figs", exist_ok=True)
 
