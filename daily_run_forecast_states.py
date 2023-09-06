@@ -123,10 +123,10 @@ def main():
         i_saturate=-1,   # -2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
 
         # Dynamic ramp
-        r1_start=0.95,
-        r2_start=1.1,
-        r1_end=0.95,  # R_new Value to which R = 1 is converted
-        r2_end=1.1,  # R_new Value to which R = 2 is converted
+        r1_start=0.95,  # R_start Value to which R = 1 is converted
+        r2_start=1.5,  # R_start Value to which R = 2 is converted
+        r1_end=0.95,  # R_end Value to which R = 1 is converted
+        r2_end=1.5,  # R_end Value to which R = 2 is converted
 
         # Rtop ramp extra params
         rmean_top=1.40,  # (Obs: Starting value, but it is decreased at each pass, including the first)
