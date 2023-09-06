@@ -1,12 +1,12 @@
 """
 Load CDC Flu hospitalization data, run forecast for each state, export results and reports.
-RUNS FOR DAILY DATA.
+Uses daily truth data, but outputs weekly forecasts.
 
 loc == state
 
 ndays_past = Used only for the R(t) synthesis: number of days in the past to consider.
 
-pres = present = Day of the last CDC report.
+pres = present = Day for which the forecast is assumed to start.
 
 Author: Paulo Cesar Ventura (https://github.com/paulocv, https://paulocv.netlify.app)
 On behalf of: CEPH Lab @ Indiana University (https://github.com/CEPH-Lab)
@@ -59,8 +59,8 @@ def main():
     # For this version, ROI is defined in weeks but then converted to days.
 
     # -()- Current season
-    week_last = -2
-    week_roi_start = week_last - 10  # pd.Timestamp("2022-08-29")
+    week_last = -2   # Specify the week in data treated as "present". Negative indexing allowed.
+    week_roi_start = week_last - 10  # pd.Timestamp("2022-08-29")  # Specify the start of the MCMC ROI.
 
     pre_roi_len = 15  # Length of the preprocessing ROI in weeks. Reduced to avoid off-season estimation.
 
@@ -122,13 +122,7 @@ def main():
         k_end=0.85,      # Ramp method: ending coefficient
         i_saturate=-1,   # -2 * WEEKLEN,  # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
 
-        # # Dynamic ramp
-        # r1_start=1.0,
-        # r2_start=1.3,
-        # r1_end=0.8,   # R_new Value to which R = 1 is converted
-        # r2_end=1.0,    # R_new Value to which R = 2 is converted
-
-        # Dynamic ramp  # FLAT (still dynamic though)!!
+        # Dynamic ramp
         r1_start=0.95,
         r2_start=1.1,
         r1_end=0.95,  # R_new Value to which R = 1 is converted
@@ -166,10 +160,13 @@ def main():
 
     exception_dict = dict()
 
-    # SELECT ONLY THESE STATES
+    # --- STATE SELECTION -
+    # # Run only for these locations, for testing purposes
     # use_states = ["California", "Texas", "Michigan", "Indiana", "Wyoming", "New York", "Colorado", "Maryland"]  #
-    # use_states = ["California", "Texas", "Indiana", "Wyoming"]  #
     use_states = None
+
+    # Do not directly run for these locations
+    exclude_states = ["US", "Virgin Islands"]
 
     # PRELIMINARIES
     # ------------------------------------------------------------------------------------------------------------------
@@ -191,7 +188,7 @@ def main():
         # Select states for testing purposes (#filter)
         if use_states and (state_name not in use_states):  # Inclusion-only list
             return None
-        if state_name in ["US", "Virgin Islands"]:  # Exclusion list
+        if state_name in exclude_states:  # Exclusion list
             print(f"############# EXCLUDED {state_name}")
             return None
 
@@ -445,20 +442,7 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
 
     # --- Method decision regarding the cumulative hospitalizations in the ROI
     # OBS: TRY TO KEEP A SINGLE IF/ELIF CHAIN for better clarity of the choice!
-
-    # TODO: NORMALS FOR EVERYONE!!!!!! 2023-03-21
-    exd.notes = "use_rnd_normal"
-
-    # TODO Puerto Rico has a surge - 2023-04-03
-    if exd.state_name in ["Puerto Rico"]:
-        exd.notes = "NONE"
-
-
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
-
-        if exd.state_name == "Virgin Islands":  # Chose params for more conservative estimates.
-            exd.synth_params["center"] = 0.8
-            exd.synth_params["sigma"] = 0.02
 
         # Random normal
         synth_method = synth.random_normal_synth
@@ -503,10 +487,6 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: CovHospForecastOutput):
 
     # Debriefing
     # ---------------------------
-
-    # if exd.state_name in special_states_01:
-    #     exd.stage, exd.notes = "c_reconst", "no_filter"  # Approve, but signal that state is mustn't be ct-filtered
-    # else:
     exd.stage, exd.notes = "c_reconst", "NONE"  # Approve with default method
 
 
@@ -528,7 +508,6 @@ def callback_c_reconstruction(exd: ForecastExecutionData, fc: CovHospForecastOut
     fc.ct_fore2d = fc.noise_obj.generate(fc.ct_fore2d, fc.fore_daily_tlabels)
 
     # # Aggregate from daily to weekly
-    # fc.ct_fore2d_weekly = interp.daily_to_weekly(fc.ct_fore2d, dtype=float)  # Aggregate from day 0
     fc.ct_fore2d_weekly, fc.fore_weekly_time_labels = \
         interp.daily_to_epiweeks(fc.ct_fore2d, fc.fore_daily_tlabels, dtype=float)
 
@@ -753,7 +732,6 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
             weekly.values, index=weekly.index.map(get_epiweek_label_from_id))
 
         last_val = factual_ct.loc[post.day_pres - pd.Timedelta((post.day_pres.weekday() - WEEKDAY_TGT) % WEEKLEN, "d")]
-        # last_val = state_series.iloc[-1] * 7  # TODO TEMPORARY, CHANGE TO ACTUAL AGG VALUE
         ct_color = "C1" if post.day_pres < cdc.data_time_labels[-1] else "C0"  # C1 if there's a future week available
 
         # Plot function
@@ -786,7 +764,6 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
 
         ct_past_us: pd.Series = preproc_dict["US"]
         # _last_val = ct_past_us.iloc[-1]
-        # _factual_ct = cdc.xs_state("US").loc[us.day_0:us.day_fore]["value"]
         _factual_ct = cdc.xs_state("US").loc[us.day_0:us.day_fore]["value"]
         weekly = _factual_ct.groupby(get_epiweek_unique_id).sum()
         _factual_ct = pd.Series(
@@ -838,36 +815,6 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
             fig.tight_layout()
             pdf_pages.savefig(fig)
 
-    # #
-    # # PLOTS - INTERPOLATION OF PAST C(t)
-    # # ------------------------------------------------------------------------------------------------------------------
-    #
-    # def plot_table_interpolation(ax: plt.Axes, item, i_ax):
-    #     post, state_name = item  # Unpack content tuple
-    #
-    #     ct_past: pd.Series = preproc_dict[state_name]
-    #     ax.plot(*interp.weekly_to_daily_uniform(ct_past.index, ct_past.values), label="Unif. interp.")
-    #     ax.plot(post.t_daily, post.float_data_daily, "-", label="Float interp.")
-    #     ax.plot(post.t_daily, post.ct_past, "o", label="Int interp.", ms=1)
-    #     ax.text(0.05, 0.9, f"{i_ax+1}) {state_name}", transform=ax.transAxes)
-    #
-    #     ax.set_facecolor("#E8F8FF")
-    #
-    #     print(f"  [{state_name}] ({i_ax+1} of {num_filt_items})  |", end="")
-    #
-    # def task(chunk):
-    #     return vis.plot_page_generic(chunk, plot_table_interpolation, ncols=ncols)
-    #
-    # print("\nPlotting interpolations...")
-    # results = map_parallel_or_sequential(task, content_chunks, ncpus=ncpus)  # Returns: [(fig, axes, plot_outs)]
-    # print()
-    #
-    # # --- Plot postprocess and export
-    # with PdfPages("tmp_figs/daily_interp_states.pdf") as pdf_pages:
-    #     for fig, axes, plot_outs in results:
-    #         fig.tight_layout()
-    #         pdf_pages.savefig(fig)
-    #
     # PLOTS - PAST AND SYNTHESISED R(t)
     # ------------------------------------------------------------------------------------------------------------------
 
