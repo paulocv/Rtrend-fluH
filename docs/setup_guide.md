@@ -1,14 +1,14 @@
 # Setup guide for Rtrend FluH model
 
-This document guides trough the process to setup the Rtrend FluH on your computer, including its dependencies. 
-This process is tested for MacOS with Apple Silicon.
+This document guides through the process to setup the Rtrend FluH on your computer, including its dependencies. 
+This process was tested for MacOS with Apple Silicon.
 
 Steps 1 and 2 require some installation and manual configuration. Once you reach Step 3, the repo will be downloaded, so it should be a matter of running the right scripts in the right order.
 
 ## Prerequisites
 
 ### Pre 1: Conda package manager (python & etc)
-Conda is a package and environment management system. It was originally created for python, but currently spans other useful software, like git and Github CLI. This means that we can install and manage all dependencies of the Rtrend project with Conda.
+Conda is a package and environment management system. It was originally created for python, but currently supports other useful software, like git and GitHub CLI. This means that we can install and manage all dependencies of the Rtrend project with Conda.
 
 Visit the [Conda installation page](https://docs.conda.io/projects/conda/en/stable/user-guide/install/) and follow the instructions to install. (If the link is broken, just Google for conda.)
 
@@ -25,32 +25,9 @@ This library is required by the MCMC code. It can be obtained from Conda ([see h
 
 ## Step-by-step setup
 
-### Step 1: Configure git locally to access the CEPH GitHub account
+### Step 1: login to git in your computer
 
-This is needed to work locally on the repository (clone the repository, pull updates). If you already configured git locally (i.e., logged in to the CEPH account or another one that has access to this repository), you can skip this step.
-
-**Recommended method: GitHub CLI**
-
-GitHub CLI is a tool to use GitHub from the command line. Both git and GitHub CLI can be installed using Conda.
-
-* 1.1: Install git and GitHub CLI. Open a terminal window and type:
-    ```
-    conda install -c conda-forge -c anaconda gh git
-    ```
-    Wait for the data to be collected, type "y" to confirm and wait for the packages to be installed.
-
-* 1.2: Run the GitHub CLI to authenticate into CEPH and cache the credentials
-    This step will run a command-line application. For more information, check [Caching your GitHub credentials in Git](https://docs.github.com/en/get-started/getting-started-with-git/caching-your-github-credentials-in-git). 
-
-    Start the application:
-    ```
-    gh auth login
-    ```
-
-    Then follow the instructions. The CEPH username is: CEPH-Lab (case-sensitive)
-    * When prompted for your preferred protocol for Git operations, select HTTPS.
-    * When asked if you would like to authenticate to Git with your GitHub credentials, enter Y.
-
+This step is optional and user-dependent. You can achieve it by [installing GitHub CLI](https://github.com/cli/cli#installation) and [authenticating](https://cli.github.com/manual/gh_auth_login).
     
 ### Step 2: Clone the Rtrend repository (with submodules)
 
