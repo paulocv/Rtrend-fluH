@@ -1,12 +1,13 @@
 """
 Load CDC data, run forecast for each state, export results and reports.
+Uses weekly data (requires interpolation to daily resolution).
 
 loc == state
 
 ROI = region of interest: ideally, comprises the current outbreak since its "beginning".
 ndays_past = Used only for the R(t) synthesis: number of days in the past to consider.
 
-pres = present = Day of the last CDC report.
+pres = present = Day for which the forecast is assumed to start.
 
 Author: Paulo Cesar Ventura (https://github.com/paulocv, https://paulocv.netlify.app)
 On behalf of: CEPH Lab @ Indiana University (https://github.com/CEPH-Lab)
@@ -74,12 +75,6 @@ def main():
     nweeks_fore = NUM_WEEKS_FORE  # Number of weeks to forecast
     nsamples_us = 1000  # Number of C(t) samples to take from each state for building the US forecast.
 
-    # tg_params = dict(  # Mean 2.3, IQR 1.34 to 3.51
-    #     shape=17.,
-    #     rate=7.39,
-    #     tmax=30,  # int
-    # )
-
     tg_params = dict(  # Mean 3.0 IQR 1.4 to 5.1
         shape=10.,
         rate=10./3.,
@@ -129,29 +124,20 @@ def main():
         rmean_top=1.40,  # (Obs: Starting value, but it is decreased at each pass, including the first)
         max_width=0.15,
 
-        # # Random normal params
-        # seed=10,
-        # center=0.95,
-        # sigma=0.025,
-        # num_samples=1000,  # Use this instead of the MCMC ensemble size.
-
-        # Random normal params – Off-season values
+        # Random normal params
         seed=10,
-        center=1.010,
-        sigma=0.010,
-        num_samples=500,  # Use this instead of the MCMC ensemble size.
+        center=0.95,
+        sigma=0.025,
+        num_samples=1000,  # Use this instead of the MCMC ensemble size.
+
     )
 
     # C(t) reconstruction
     recons_params = dict(seed=2)
 
     # --- Misc
-    post_weekly_coefs = np.ones(nweeks_fore, dtype=float)  # Postprocess weekly multiplicative coefficient
-    # post_weekly_coefs[0] = 0.6  # Thanksgiving underreporting effect
-    # # Christmas
-    # post_weekly_coefs[1] = 0.75  # Christmas
-    # post_weekly_coefs[2] = 0.70  # Christmas
-    # post_weekly_coefs[3] = 0.80  # Christmas
+    # Postprocess weekly multiplicative coefficient
+    post_weekly_coefs = np.ones(nweeks_fore, dtype=float)
 
     # --- Program parameters
     cdc_data_fname = "hosp_data/truth-Incident Hospitalizations.csv"
@@ -165,9 +151,13 @@ def main():
 
     exception_dict = dict()
 
-    # SELECT ONLY THESE STATES
+    # --- STATE SELECTION -
+    # # Run only for these locations, for testing purposes
     # use_states = ["California", "Texas", "Michigan", "Indiana", "Wyoming", "New York", "Colorado", "Maryland"]  #
     use_states = None
+
+    # Do not directly run for these locations
+    exclude_states = ["US", "Virgin Islands"]
 
     # -
     # ------------------------------------------------------------------------------------------------------------------
@@ -175,8 +165,8 @@ def main():
     # ------------------------------------------------------------------------------------------------------------------
     # -
 
-    # PRELIMINARIES
-    # -------------
+    # PRELIMINARY STEPS
+    # -----------------
     if not do_export:
         print(10 * "#" + " EXPORT SWITCH IS OFF " + 10 * "#")
 
@@ -195,7 +185,7 @@ def main():
         if use_states and state_name not in use_states:
             return None
 
-        if state_name in ["US", "Virgin Islands"]:  # Exclusion list
+        if state_name in exclude_states:  # Exclusion list
             return None
 
         print(f"-------------- ({i_s+1} of {cdc.num_locs}) Starting {state_name}...")
@@ -408,22 +398,9 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
     # --- Method decision regarding the cumulative hospitalizations in the ROI
     # OBS: TRY TO KEEP A SINGLE IF/ELIF CHAIN for better clarity of the choice!
 
-    # TODO: NORMALS FOR EVERYONE!!!!!! 2023-03-21
-    exd.notes = "use_rnd_normal"
-
-    # # TODO End-of-season normals
-    # if exd.state_name in ["Hawaii", "Delaware", "District of Columbia", "Montana",
-    #                       "Rhode Island", "West Virginia", "Minnesota", "Utah", "Alaska", "Idaho", "Vermont",
-    #                       "Wisconsin"]:
-    #     exd.notes = "use_rnd_normal"
-
     if sum_roi <= 50 or exd.notes == "use_rnd_normal":  # Too few cases for ramping, or rnd_normal previously asked.
         synth_method = synth.random_normal_synth
         fc.synth_name = exd.method = f"rnd_normal_{exd.synth_params['center']:0.2f}"
-
-        if exd.state_name == "Virgin Islands":  # Chose params for more conservative estimates.
-            exd.synth_params["center"] = 0.8
-            exd.synth_params["sigma"] = 0.02
 
     elif exd.notes == "NONE":  # DEFAULT CONDITION, does not fall into any of the previous
         # # -()- Static ramp
@@ -434,19 +411,12 @@ def callback_r_synthesis(exd: ForecastExecutionData, fc: ForecastOutput):
         synth_method = synth.sorted_dynamic_ramp
         fc.synth_name = exd.method = "dynamic_ramp" + (exd.synth_params["i_saturate"] != -1) * "_sat"  #saturation
 
-        if sum_roi > 1600 or exd.state_name in ["Indiana", "Michigan", "Ohio", "Oklahoma"]:  # Large numbers
-            # Increase width of the sample.
+        # Increase width of the sample for states with large numbers.
+        if sum_roi > 1600:
             exd.synth_params["q_low"] = 0.01
             exd.synth_params["q_hig"] = 0.99
             synth_method = synth.sorted_dynamic_ramp
             fc.synth_name = exd.method = "dynamic_ramp_highc" + (exd.synth_params["i_saturate"] != -1) * "_sat"
-
-        # -- TODO SMALL STATES EXCEPTION 2023/01/30 and 2023/02/06
-        if exd.state_name in ["South Dakota", "Vermont", "Wyoming"]:
-            exd.synth_params["q_low"] = 0.49
-            exd.synth_params["q_hig"] = 0.51
-            # exd.method = "dynamic_ramp_SPECIAL"
-            fc.synth_name = "dynamic_ramp_SPECIAL"
 
     elif exd.notes == "use_static_ramp_rtop":
         exd.synth_params["rmean_top"] -= 0.05  # Has an initial value. Decreases at each pass.
@@ -847,89 +817,3 @@ def make_plot_tables(post_list, cdc: CDCDataBunch, preproc_dict, nweeks_fore, us
 
 if __name__ == "__main__":
     main()
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# CODE GRAVEYARD
-# ----------------------------------------------------------------------------------------------------------------------
-
-# ----------------------- PLOT PREVIOUS METHOD - SEQUENTIAL PLOTS
-
-    # # Plot preamble
-    # # -------------
-    # ct_fig, ct_axes = make_axes_seq(num_filt_items, max_cols=6, total_width=15)  # Forecast
-    # ip_fig, ip_axes = make_axes_seq(num_filt_items, max_cols=6, total_width=15)  # Interpolation
-    #
-    # # MAIN PLOT LOOP - CT
-    # # --------------
-    # # for i_ax, (post, state_name) in enumerate(zip(filt_post_list, filt_state_names)):
-    # for i_ax, (post, state_name) in enumerate(content_zip):
-    #
-    #     # C(t) PAST AND FORECAST TIME SERIES (layered quantiles)
-    #     # ------------------------------------------------------
-    #     ax: plt.Axes = ct_axes[i_ax]
-    #
-    #     ct_past: pd.Series = preproc_dict[state_name]
-    #     last_val = ct_past.iloc[-1]
-    #     factual_ct = cdc.xs_state(state_name).loc[post.day_0:post.day_fore]["value"]
-    #     ct_color = "C1" if post.day_pres < cdc.data_time_labels[-1] else "C0"  # C1 if there's a future week available
-    #
-    #     vis.plot_ct_past_and_fore(ax, post.fore_time_labels, post.weekly_quantiles, factual_ct, state_name,
-    #                               post.synth_name if write_synth_names else None, post.num_quantiles, ct_color,
-    #                               (post.day_pres, last_val))
-    #
-    #     # Interpolation
-    #     # --------------------------------------
-    #     ax = ip_axes[i_ax]
-    #
-    #     ax.plot(*interp.weekly_to_daily_uniform(ct_past.index, ct_past.values), label="Unif. interp.")
-    #     ax.plot(post.t_daily, post.float_data_daily, "-", label="Float interp.")
-    #     ax.plot(post.t_daily, post.ct_past, "o", label="Int interp.", ms=1)
-    #     ax.text(0.05, 0.9, state_name, transform=ax.transAxes)
-    #
-    #     ip_fig.tight_layout()
-    #
-    #     print(f"Plot {state_name} done ({i_ax + 1} of {num_filt_items})")
-    #
-    # # Separated plots for US series
-    # # -----------------------------
-    # if us is not None:
-    #     fig_us, ax = plt.subplots()
-    #
-    #     # Write about an incomplete list of states (which may be intentional)
-    #     if num_filt_items < NUM_STATES:
-    #         ax.text(0.2, 0.5, "WARNING: not all states were used.", transform=ax.transAxes, color="r")
-    #
-    #     ct_past: pd.Series = preproc_dict["US"]
-    #     last_val = ct_past.iloc[-1]
-    #     factual_ct = cdc.xs_state("US").loc[us.day_0:us.day_fore]["value"]
-    #     ct_color = "C1" if us.day_pres < cdc.data_time_labels[-1] else "C0"  # C1 if there's a future week available
-    #
-    #     vis.plot_ct_past_and_fore(ax, us.fore_time_labels, us.weekly_quantiles, factual_ct, "US",
-    #                               None, us.num_quantiles, ct_color, (us.day_pres, last_val))
-    #
-    #     fig_us.tight_layout()
-    #     fig_us.savefig("tmp_figs/ct_us.pdf")
-    #
-    # # FINAL REMARKS
-    # # -------------
-    # ip_axes[0].legend()
-    #
-    # ct_fig.tight_layout()
-    #
-    # ct_fig.savefig("tmp_figs/ct_states.png")
-    # ct_fig.savefig("tmp_figs/ct_states.pdf")
-    #
-    # ip_fig.savefig("tmp_figs/interp_states.pdf")
-
-
-# --------------------
-
-    # # -()- Filter by maximum R value in the whole time series.
-    # if r_max is not None:
-    #     # Find the first iteration to exceed r_max in any time point, then filters
-    #     i_exceed = min(np.searchsorted(filt[:, i_t], r_max) for i_t in range(ndays_past))
-    #     filt = filt[:i_exceed]
-    #
-    #     if i_exceed == 0:
-    #       warnings.warn(f"\nHey, all time series had at least one value above r_max = {r_max}. Result will be empty.")

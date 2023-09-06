@@ -21,23 +21,32 @@ A complete guide is available in the following docs:
 - [Submission Guide](./docs/submission_guide.md) – Follow this to submit the forecast to the main repository (instructions for CEPH Lab).
 
 
-## Implementation details
+## Methodology in brief
 
-[_UNDER CONSTRUCTION_]
+The truth data with daily resolution (Influenza confirmed hospitalizations) is fetched from [healthdata.gov](https://healthdata.gov/). The data from each location (except USA) is processed independently through a forecast pipeline.
 
 ### Preprocessing
 
-### Interpolation
+The past truth time series is subject to a lowpass filtering to remove short-term noise. Noise patterns, given by the difference between the raw and filtered past time series), are fitted to a Gaussian model with zero mean.
 
-* The day of the weekly report (by default, every Saturday) is assumed to represent the **7 days prior to the report**. Example:
-	* Report date: 2022-11-12
-	* First day covered: 2022-11-05
-	* Last day covered: 2022-11-11
+### R(t) estimation via MCMC
 
-* The `day_pres` time label represents "today", meaning the first day to be forecast. It is assumed as the first day in which data is unknown.
-
-### R(t) MCMC estimation
+A Monte Carlo Markov Chain (MCMC) approach with Poisson likelihood is used to estimate the near-past reproduction number R(t) trajectories from the past data, using a gamma-distributed generation time with parameters known from the literature [1].  
 
 ### Future R(t) synthesis
 
+The ensemble of past R(t) trajectories is used as a base to construct the forecasted R(t) trajectories. This is done by calculating the time-average R for each past trajectory within a selected interquantile range, then projecting this value through the forecast period. The projection is modulated by a time-dependent ramp, which represents estimated changes to the reproduction number trend.  
+
 ### Time series C(t) reconstruction
+
+Each of the forecasted R(t) trajectories is combined with the generation time and the past incidence data into a renewal equation. The results of this equation are forecasted trajectories of the target incidence. Extra uncertainty is added by adding synthetic noise with the noise parameters fitted during the preprocessing stage.
+
+### Postprocessing
+
+The trajectories of each location are aggregated from daily resolution to weekly values. The final forecast quantiles are taken from this ensemble of trajectories.
+
+For the USA forecast, the trajectories of all states are weekly sorted from lowest to highest incidence and then aggregated. The quantile forecasts are calculated from these aggregated trajectories. 
+
+## References
+
+[1] Ajelli, Marco, et al. "The role of different social contexts in shaping influenza transmission during the 2009 pandemic." Scientific reports 4.1 (2014): 1-7.
