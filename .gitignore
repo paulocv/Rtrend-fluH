@@ -16,6 +16,7 @@
 calc_season_stats.py
 apagar.py
 parsel_*.py
+eval_param_selection.py
 
 # Sh scripts
 !activate_env.sh
