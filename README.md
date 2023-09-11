@@ -2,7 +2,7 @@
 
 ![image](rt_flu_logo.png "Rtrend Flu Logo")
 
-This is the source code for the Rtrend method for Influenza hospitalizations forecast, designed for the [CDC Flusight challenge](https://www.cdc.gov/flu/weekly/flusight/how-flu-forecasting.htm) by the CEPH team at Indiana University and MOBS Lab at Northeastern University.
+This is the source code for the Rtrend method for Influenza hospitalizations forecast, designed for the [CDC Flusight initiative](https://www.cdc.gov/flu/weekly/flusight/how-flu-forecasting.htm) by the CEPH Lab at Indiana University and MOBS Lab at Northeastern University.
 
 Team members:
 - Paulo C. Ventura
