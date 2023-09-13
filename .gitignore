@@ -18,6 +18,7 @@ apagar.py
 parsel_*.py
 eval_param_selection.py
 simple_sir_tester.py
+generic_script_template.py
 
 # Sh scripts
 !activate_env.sh
