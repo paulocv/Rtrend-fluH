@@ -1,7 +1,5 @@
 """
-Performs a training loop for the parameter selection maching of
-Rtrend forecasts.
-Relies on preprocessed data loaded from files.
+Runs the Rtrend forecasting method for the FluSight CDC initiative.
 """
 
 import argparse
@@ -14,16 +12,19 @@ import pandas as pd
 import yaml
 
 from rtrend_forecast.reporting import (
-    ExecTimeTracker,
     get_rtrend_logger,
     get_main_exectime_tracker,
 )
 from rtrend_forecast.structs import RtData, get_tg_object
-from rtrend_forecast.preprocessing import apply_lowpass_filter_pdseries
 from rtrend_forecast.utils import map_parallel_or_sequential
 from rtrend_interface.forecast_operators import WEEKLEN, ParSelTrainOperator
-from rtrend_interface.parsel_utils import load_population_data, make_date_state_index, load_truth_cdc_simple, make_mcmc_prefixes, \
-    make_file_friendly_name, make_rt_out_fname, make_filtered_fname
+from rtrend_interface.parsel_utils import (
+    load_population_data,
+    make_date_state_index,
+    load_truth_cdc_simple,
+    make_file_friendly_name,
+    make_state_index,
+)
 
 _CALL_TIME = datetime.datetime.now()
 
@@ -35,9 +36,7 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
     filt_col_name="filtered",
     filtround_col_name="filtered_round",
 
-    # Parallelization (use either, not both)
-    ncpus_dates=5,
-    ncpus_states=1,
+    ncpus=1,
 )
 
 DEFAULT_PARAMS_GENERAL = dict(  # Parameters from the `general` dict
@@ -50,7 +49,6 @@ DEFAULT_PARAMS_RT_ESTIMATION = dict(  # Parameters from the `general` dict
 )
 
 # Helpful objects from the Rtrend library
-# LOCAL_XTT = ExecTimeTracker(category=__name__)
 GLOBAL_XTT = get_main_exectime_tracker()
 _LOGGER = get_rtrend_logger().getChild(__name__)
 
@@ -73,14 +71,8 @@ def main():
     # run_training(params, data)  # THIS WILL RUN THE SEASON MULTIPLE TIMES
     run_forecasts_once(params, data)  # RUNS once FOR ONE "SEASON"!
 
-    # # --- TEST FUNCTION
-    # dev_synth_one_data(params, data)
-
     # Manually reporting exec time
-    print("-------------------\nEXECUTION TIMES")
-    # for key, val in LOCAL_XXT.get_dict().items():
-    for key, val in GLOBAL_XTT.get_dict().items():
-        print(key.ljust(25, ".") + f" {val:0.4f}s")
+    report_execution_times()
 #
 
 
@@ -115,8 +107,7 @@ class Params:
     # Program parameters
     filt_col_name: str
     filtround_col_name: str
-    ncpus_dates: int
-    ncpus_states: int
+    ncpus: int
 
 
 class Data:
@@ -128,9 +119,7 @@ class Data:
     all_state_names: list  # Names of all available locations to forecast
     state_name_to_id: dict  # From `location_name` to `location`
 
-    day_pres_seq: pd.DatetimeIndex  # Sequence of present days to use
     use_state_names: None  # Names of locations that shall be used.
-    date_state_idx: pd.MultiIndex  # Combined index for dates and states
     # summary_metrics_df: pd.DataFrame  # Overall summary metrics
 
 
@@ -226,12 +215,12 @@ def import_simulation_data(params: Params, data: Data):
 
     data.__dict__.update(load_population_data(pop_fname))
 
-    # -------------------
-    # IMPORT OR PREPARE PREPROCESSING DATA
-    # -------------------
 
-    # THIS May be done with a stream instead. Let's see.
-
+def report_execution_times():
+    print("-------------------\nEXECUTION TIMES")
+    # for key, val in LOCAL_XXT.get_dict().items():
+    for key, val in GLOBAL_XTT.get_dict().items():
+        print(key.ljust(25, ".") + f" {val:0.4f}s")
 
 #
 
@@ -288,185 +277,78 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     given parameters, for all locations and selected dates.
     """
 
-    # --------------------
-    # Prepare the loop
-    # --------------------
-    data.day_pres_seq, data.use_state_names, data.date_state_idx = (
-        make_date_state_index(params.general, data.all_state_names))
+    # ----------------------
+    # Prepare the state loop
+    # ----------------------
+    # --- Create sequence of selected state names
+    data.use_state_names = make_state_index(
+        params.general, data.all_state_names)
 
-    # Unpacks structs to pass into subprocesses
-    day_pres_seq = data.day_pres_seq
+    # --- Loads truth file
+    truth_df = load_truth_cdc_simple(params.general["hosp_data_path"])
+
+    # --- Defines relevant dates from the truth files
+    day_index = (truth_df.index.get_level_values("date").unique()
+                 .sort_values())
+    day_pres = day_index[params.general["day_pres_id"]]
+    day_pres_str = day_pres.date().isoformat()
+
+    # --- Unpacks structs to pass into subprocesses
     use_state_names = data.use_state_names
     state_name_to_id = data.state_name_to_id
     pop_df = data.pop_df
 
-    # ---
+    # WATCH
+    print(day_pres)
+    print(day_pres_str)
+    print(day_index)
+    # toDO CONTINUE HERE!!!!
 
-    def date_task(date_inputs):
-        """Forecast for one date, all states."""
-        i_date, day_pres = date_inputs
+    def state_task(state_inputs):
+        """Forecast for one location and date."""
+        i_state, state_name = state_inputs
+        _sn = make_file_friendly_name(state_name)
+        _LOGGER.debug(f"Called state_task for day_pres={day_pres} and state_name={state_name}")
 
-        day_pres: pd.Timestamp
-        day_pres_str = day_pres.date().isoformat()
+        # Preparation work
+        # ----------------------------
 
-        truth_df = load_truth_for_day_pres(params, day_pres)
-        #  ^ ^ Passed to state subprocess.
+        # Retrieve state truth (full series)
+        state_series = truth_df.xs(
+            state_name_to_id[state_name], level="location")["value"]
 
-        def state_task(state_inputs):
-            """Forecast for one location and date."""
-            i_state, state_name = state_inputs
-            _sn = make_file_friendly_name(state_name)
-            _LOGGER.debug(f"Called state_task for day_pres={day_pres} and state_name={state_name}")
+        # Make Generation time
+        tg = get_tg_object(params.general["tg_model"], **params.general)
 
-            # Preparation work
-            # ----------------------------
-
-            # Retrieve state truth (full series)
-            state_series = truth_df.xs(
-                state_name_to_id[state_name], level="location")["value"]
-
-            # Make Generation time
-            tg = get_tg_object(params.general["tg_model"], **params.general)
-
-            # Create the forecast operator
-            # ----------------------------
-            fop = ParSelTrainOperator(
-                # --- Child class arguments
-                day_pres, params.general["nperiods_main_roi"],  # Child class args
-                population=pop_df.loc[state_name, "population"],
-                # --- Base class arguments
-                incid_series=state_series,  # Base class args
-                params=params.__dict__,
-                nperiods_fore=WEEKLEN * params.general["nperiods_fore"],
-                name=f"{_sn}_{day_pres_str}",
-                tg_past=tg,
-            )
-            _LOGGER.debug(f"Created forecast operator {fop.name}")
-
-            # Run the forecast operations
-            # --------------------------
-            fop.run()
-
-            # # TEST STUFF HERE TODO
-            # print(f"Watch {fop.name}\n"
-            #       # f"{fop.inc.fore_aggr_df}\n"
-            #       f"{fop.fore_quantiles}\n"
-            #       )
-
-            # ----
-            fop.dump_heavy_stuff()
-
-            return fop
-
-        # --- Run for states
-        return map_parallel_or_sequential(
-            state_task, enumerate(use_state_names), params.ncpus_states
+        # Create the forecast operator
+        # ----------------------------
+        fop = ParSelTrainOperator(
+            # --- Child class arguments
+            day_pres, params.general["nperiods_main_roi"],  # Child class args
+            population=pop_df.loc[state_name, "population"],
+            # --- Base class arguments
+            incid_series=state_series,  # Base class args
+            params=params.__dict__,
+            nperiods_fore=WEEKLEN * params.general["nperiods_fore"],
+            name=f"{_sn}_{day_pres_str}",
+            tg_past=tg,
         )
+        _LOGGER.debug(f"Created forecast operator {fop.name}")
 
-    # --- Run for dates
-    date_state_fop_list = map_parallel_or_sequential(
-        date_task, enumerate(day_pres_seq), params.ncpus_dates
+        # Run the forecast operations
+        # --------------------------
+        fop.run()
+
+        # ----
+        fop.dump_heavy_stuff()
+
+        return fop
+
+    # --- Run for states
+    return map_parallel_or_sequential(
+        state_task, enumerate(use_state_names), params.ncpus
     )
 
-
-    # # todo test outcomes of one forecast ---------------------------
-    # fop_df = pd.DataFrame(
-    #     date_state_fop_list,
-    #     index=day_pres_seq,
-    #     columns=use_state_names,
-    # )
-    #
-    # # fop: ParSelTrainOperator = date_state_fop_list[1][0]  # From nested list
-    # probe_state = "California"  # "Florida" # "Wyoming" # "Illinois"
-    # fop: ParSelTrainOperator = fop_df.iloc[1][probe_state]
-    #
-    # print("----- TEST ONE FORECAST -----")
-    # print(fop.name)
-    #
-    # latest_truth_df = load_truth_for_day_pres(params, day_pres_seq[-1])
-    # latest_incid_sr = (
-    #     latest_truth_df.xs(state_name_to_id[probe_state], level="location")["value"])
-    #
-    # from matplotlib import pyplot as plt
-    # from rtrend_tools.visualization import plot_precalc_quantiles_as_layers
-    #
-    # fig, ax = plt.subplots()
-    # ax: plt.Axes
-    #
-    # # fop.logger.error(f"WATCH {fop.inc.past_aggr_sr}")
-    # # fop.logger.error(f"WATCH {fop.time.past_aggr_idx}")
-    #
-    # # # WEEKLY
-    # # ax.plot(fop.inc.past_aggr_sr)
-    # # ax.plot(fop.fore_quantiles.loc[0.5], "--")
-    # # plot_precalc_quantiles_as_layers(
-    # #     ax, fop.fore_quantiles.to_numpy(), fop.time.fore_aggr_idx)
-    #
-    # # DAILY
-    #
-    # ax.plot(fop.inc.past_gran_sr)  # Filtered past daily
-    # print(latest_incid_sr[fop.time.pg0:fop.time.fa1])
-    # ax.plot(latest_incid_sr[fop.time.pg0:fop.time.fg1])  # Truth series
-    # plot_precalc_quantiles_as_layers(
-    #     ax, fop.daily_quantiles.to_numpy(), fop.time.fore_gran_idx
-    # )
-    # ax.plot(fop.daily_quantiles.loc[0.5], "--", color="gray")
-    #
-    # ax.set_title(fop.name)
-    #
-    # plt.show()
-
-
-# ----------------
-# FUTURE FUNCTIONS Z– These will be moved to the Rtrend package
-import numba as nb
-
-
-# def _calc_rt_next_tmp(last_r_vals, nsamples, last_ct, _rng):
-#     """HARDCODED FUNCTION TO TEST MULTIPLE METHODS OF R(T) SYNTHESIS"""
-#     # --- INCIDENCE EXPONENTIAL DRIFT
-#     # TMP: define here drift parameters
-#     sigma = 0.00  # Width of the random walk normal steps
-#
-#     # alpha = 2.E-5  # California. Weight of the current incidence to deplete susceptibles.
-#     alpha = 6.E-5  # Illinois. Weight of the current incidence to deplete susceptibles.
-#     # alpha = 10.E-4  # Wyoming. Weight of the current incidence to deplete susceptibles.
-#
-#     bias = 0.000
-#
-#     return last_r_vals * np.exp(
-#         sigma * _rng.normal(scale=sigma, size=nsamples)  # RW
-#         - alpha * last_ct + bias
-#     )
-
-
-# @nb.njit
-# def step_reconstruction(
-#         i_t_fore, ct_past, rt_fore_2d, tg_past, tg_fore, tg_max,
-#         ct_fore_2d, nsamples, seed
-# ):
-#     """One hardcoded step of the reconstruction (renewal eq.)
-#     """
-#     np.random.seed(seed + i_t_fore)  # Seeds the numba or numpy generator
-#
-#     # Main loop over R(t) samples
-#     for i_sample in range(nsamples):
-#         rt_fore = rt_fore_2d[:, i_sample]
-#         ct_fore = ct_fore_2d[:, i_sample]
-#
-#         lamb = 0.  # Sum of generated cases from past cases
-#         r_curr = rt_fore[i_t_fore]
-#
-#         # Future series chunk
-#         for st in range(1, min(i_t_fore + 1, tg_max)):
-#             lamb += r_curr * tg_fore[st] * ct_fore[i_t_fore - st]
-#
-#         # Past series chunk
-#         for st in range(i_t_fore + 1, tg_max):
-#             lamb += r_curr * tg_past[st] * ct_past[-(st - i_t_fore)]
-#
-#         # Poisson number
-#         ct_fore[i_t_fore] = np.random.poisson(lamb)
 
 
 if __name__ == "__main__":
@@ -480,13 +362,3 @@ if __name__ == "__main__":
 # ==================  OLD CODE VAULT  =========================================
 # =============================================================================
 
-
-# # -()- HARDCODED DYNAMIC RAMP
-# r1, r2 = [params.rt_synthesis[k] for k in ["r1_start", "r2_start"]]
-# r_start = (r2 - r1) * mean_vals + 2 * r1 - r2
-# r1, r2 = [params.rt_synthesis[k] for k in ["r1_end", "r2_end"]]
-# r_end = (r2 - r1) * mean_vals + 2 * r1 - r2
-#
-# rt_fore = RtData(np.linspace(r_start, r_end, ndays_fore).T)
-#
-# # -//-
