@@ -5,6 +5,7 @@ Runs the Rtrend forecasting method for the FluSight CDC initiative.
 import argparse
 import datetime
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +23,11 @@ from rtrend_interface.forecast_operators import (
     ParSelTrainOperator,
     FluSightForecastOperator,
 )
-from rtrend_forecast.visualization import rotate_ax_labels
+from rtrend_forecast.visualization import (
+    rotate_ax_labels,
+    make_axes_seq,
+    plot_fore_quantiles_as_area,
+)
 from rtrend_interface.parsel_utils import (
     load_population_data,
     make_date_state_index,
@@ -77,7 +82,6 @@ def main():
     import_simulation_data(params, data)
     run_forecasts_once(params, data)
     calculate_for_usa(params, data)
-
 
     # Manually reporting exec time
     report_execution_times()
@@ -154,6 +158,7 @@ class Data:
     # summary_metrics_df: pd.DataFrame  # Overall summary metrics
 
     fop_sr: pd.Series  # Series of forecast operators, keyed by state
+    fop_sr_valid_mask: pd.Series
     usa: USAForecast  # Results for the USA level
 
 
@@ -378,7 +383,11 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
 
         # Run the forecast operations
         # --------------------------
-        fop.run()
+        try:
+            fop.run()
+        except Exception:
+            fop.logger.critical("Created an unhandled exception.")
+            raise
 
         # ----
         fop.dump_heavy_stuff()
@@ -390,10 +399,60 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
         state_task, enumerate(use_state_names), params.ncpus
     )
 
+    # --- Store and check valid outputs
     data.fop_sr = (
         pd.Series(fop_list, index=use_state_names))
 
-    # # # ------------- WATCH TODO
+    data.fop_sr_valid_mask = data.fop_sr.map(
+        lambda fop: fop.success
+    )
+
+
+    # # TODO DEBUG: why so big numbers??!??/
+    # #  ----------------------------------------------------------------
+    # _LOGGER.error("DEBUGGING STATES")
+    #
+    # rly_bad_states_sr = data.fop_sr.loc[
+    #     data.fop_sr.map(
+    #         lambda fop: fop.fore_quantiles.max().max() > 3.0E3
+    #     )
+    # ]
+    #
+    # _LOGGER.error(f"Bad states: {rly_bad_states_sr.index}")
+    # num_bad_states = rly_bad_states_sr.shape[0]
+    # ndays_past = params.rt_estimation["roi_len"]
+    #
+    # if num_bad_states == 0:  # No problems!!
+    #     return
+    #
+    # import matplotlib.pyplot as plt
+    #
+    # fig, axes = make_axes_seq(num_bad_states)
+    #
+    # for i_ax, fop in enumerate(rly_bad_states_sr):
+    #     fop: FluSightForecastOperator
+    #     ax: plt.Axes = axes[i_ax]
+    #
+    #     # -()- Plot R(t) past
+    #     ax.plot(fop.time.past_gran_idx[-ndays_past:], fop.extra["rt_past_median"])
+    #     ax.fill_between(
+    #
+    #     )
+    #     # -()- Plot R(t) fore
+    #     ax.plot(fop.time.fore_gran_idx[-ndays_past:], fop.extra["rt_fore_median"])
+    #     # ax.plot(fop.fore_quantiles.loc[0.5])
+    #
+    #     # # -()- Plot past data
+    #     # ax.plot(fop.inc.past_gran_sr)
+    #     # ax.plot(fop.extra["past_scaled_int_sr"])
+    #
+    #     rotate_ax_labels(ax)
+    #
+    # fig.tight_layout()
+    # plt.show()
+
+
+    # # # ------------- TODO TESTS
     # #  # TODO: CHANGE THE WAY THAT'S AGGREGATED. MUST BE BY REFERENCE DATES
     # #  # TODO CONTINUE (Not here) JUST GO TO AGGREGATE USA DATA
     # # # fop: FluSightForecastOperator = data.fop_sr.iloc[0]
@@ -419,8 +478,6 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     #     "California", params.postprocessing["aggr_ref_tlabel"]))
     # ax.plot(fop.fore_quantiles.loc[0.5], "--")
     #
-    # # WATCH
-    # print(fop.fore_quantiles)
     #
     # rotate_ax_labels(ax)
     # ax.set_xlim(pd.Timestamp("2023-03-30"), pd.Timestamp("2023-09-01"))
@@ -429,7 +486,46 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
 
 
 def calculate_for_usa(params: Params, data: Data):
-    pass
+
+    data.usa = USAForecast()
+    data.usa.raw_incid_sr = data.truth.xs_state("US")
+
+    # Filter invalid
+    fop_sr = data.fop_sr.loc[data.fop_sr_valid_mask]
+    if fop_sr.shape[0] == 0:  # Valid dataset is empty
+        _LOGGER.error(
+            "No forecasts were produced with the `success` flag set to"
+            " `True`. The program will quit.")
+        sys.exit(1)
+
+    # Quantile forecasts
+    # ------------------
+    data.usa.fore_quantiles = fop_sr.iloc[0].fore_quantiles.copy()
+    for fop in fop_sr.iloc[1:]:
+        if fop.fore_quantiles is not None:
+            data.usa.fore_quantiles += fop.fore_quantiles
+
+    # Categorical – Rate change forecasts
+    # -----------------------------------
+    # TODO
+
+    # #  ------------- TODO TEST WATCH
+    # print(data.usa.fore_quantiles)
+    # import matplotlib.pyplot as plt
+    #
+    # fop: FluSightForecastOperator = fop_sr.iloc[0]
+    #
+    # fig, ax = plt.subplots()
+    #
+    # ax.plot(data.usa.raw_incid_sr)
+    # plot_fore_quantiles_as_area(ax, data.usa.fore_quantiles)
+    #
+    # ax.set_xlim(
+    #     fop.time.pg0 - pd.Timedelta("2w"),
+    #     fop.time.fa1 + pd.Timedelta("1w"),
+    # )
+    # rotate_ax_labels(ax)
+    # plt.show()
 
 
 if __name__ == "__main__":
