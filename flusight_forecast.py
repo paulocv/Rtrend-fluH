@@ -17,7 +17,12 @@ from rtrend_forecast.reporting import (
 )
 from rtrend_forecast.structs import RtData, get_tg_object
 from rtrend_forecast.utils import map_parallel_or_sequential
-from rtrend_interface.forecast_operators import WEEKLEN, ParSelTrainOperator
+from rtrend_interface.forecast_operators import (
+    WEEKLEN,
+    ParSelTrainOperator,
+    FluSightForecastOperator,
+)
+from rtrend_forecast.visualization import rotate_ax_labels
 from rtrend_interface.parsel_utils import (
     load_population_data,
     make_date_state_index,
@@ -25,6 +30,7 @@ from rtrend_interface.parsel_utils import (
     make_file_friendly_name,
     make_state_index,
 )
+from rtrend_interface.truth_data_structs import FluDailyTruthData
 
 _CALL_TIME = datetime.datetime.now()
 
@@ -36,11 +42,12 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
     filt_col_name="filtered",
     filtround_col_name="filtered_round",
 
-    ncpus=1,
+    ncpus=5,
 )
 
 DEFAULT_PARAMS_GENERAL = dict(  # Parameters from the `general` dict
     pop_data_path="population_data/locations.csv",
+    hosp_data_path="hosp_data/truth_daily_latest.csv",
     forecast_days_ahead=2,  # Forecast evaluation ahead of the day_pres
 )
 
@@ -60,6 +67,7 @@ _LOGGER = get_rtrend_logger().getChild(__name__)
 # MAIN FUNCTION
 # -------------------------------------------------------------------
 
+
 def main():
 
     args: CLArgs = parse_args()
@@ -67,12 +75,34 @@ def main():
     data = Data()
 
     import_simulation_data(params, data)
+    run_forecasts_once(params, data)
+    calculate_for_usa(params, data)
 
-    # run_training(params, data)  # THIS WILL RUN THE SEASON MULTIPLE TIMES
-    run_forecasts_once(params, data)  # RUNS once FOR ONE "SEASON"!
 
     # Manually reporting exec time
     report_execution_times()
+
+
+#
+
+
+#
+
+
+# --------------------------------------------------------------------
+# AUXILIARY STRUCTURES
+# --------------------------------------------------------------------
+
+class USAForecast:
+    """Structures for the USA-level forecast, aggregated from.
+
+    NOTE: this struct is taylored for the FluSight challenge. As time
+    allows, a more general "forecast aggregate" class could be made.
+    """
+    raw_incid_sr: pd.Series  # Complete series of incidence
+    fore_quantiles: pd.DataFrame  # Aggregated period forecasted quantiles
+
+
 #
 
 
@@ -116,11 +146,15 @@ class Data:
     can be manually set should be reserved as parameters.
     """
     pop_df: pd.DataFrame  # Data frame with population demographic data
+    truth: FluDailyTruthData  # Object that holds daily truth data
     all_state_names: list  # Names of all available locations to forecast
     state_name_to_id: dict  # From `location_name` to `location`
 
     use_state_names: None  # Names of locations that shall be used.
     # summary_metrics_df: pd.DataFrame  # Overall summary metrics
+
+    fop_sr: pd.Series  # Series of forecast operators, keyed by state
+    usa: USAForecast  # Results for the USA level
 
 
 #
@@ -215,6 +249,16 @@ def import_simulation_data(params: Params, data: Data):
 
     data.__dict__.update(load_population_data(pop_fname))
 
+    # --------------------
+    # IMPORT TRUTH DATA for the given date
+    # --------------------
+    data.truth = FluDailyTruthData(
+        params.general["hosp_data_path"],
+        all_state_names=data.all_state_names,
+        state_name_to_id=data.state_name_to_id,
+        pop_data_path=params.general["pop_data_path"],
+    )
+
 
 def report_execution_times():
     print("-------------------\nEXECUTION TIMES")
@@ -284,8 +328,10 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     data.use_state_names = make_state_index(
         params.general, data.all_state_names)
 
-    # --- Loads truth file
-    truth_df = load_truth_cdc_simple(params.general["hosp_data_path"])
+    # --- Truth data
+    # truth_df = load_truth_cdc_simple(params.general["hosp_data_path"])
+    truth_obj = data.truth  # Object that handles truth data
+    truth_df = data.truth.raw_data
 
     # --- Defines relevant dates from the truth files
     day_index = (truth_df.index.get_level_values("date").unique()
@@ -297,12 +343,6 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     use_state_names = data.use_state_names
     state_name_to_id = data.state_name_to_id
     pop_df = data.pop_df
-
-    # WATCH
-    print(day_pres)
-    print(day_pres_str)
-    print(day_index)
-    # toDO CONTINUE HERE!!!!
 
     def state_task(state_inputs):
         """Forecast for one location and date."""
@@ -316,13 +356,14 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
         # Retrieve state truth (full series)
         state_series = truth_df.xs(
             state_name_to_id[state_name], level="location")["value"]
+        # state_series = truth_obj.xs_state(state_name)
 
         # Make Generation time
         tg = get_tg_object(params.general["tg_model"], **params.general)
 
         # Create the forecast operator
         # ----------------------------
-        fop = ParSelTrainOperator(
+        fop = FluSightForecastOperator(
             # --- Child class arguments
             day_pres, params.general["nperiods_main_roi"],  # Child class args
             population=pop_df.loc[state_name, "population"],
@@ -345,10 +386,50 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
         return fop
 
     # --- Run for states
-    return map_parallel_or_sequential(
+    fop_list = map_parallel_or_sequential(
         state_task, enumerate(use_state_names), params.ncpus
     )
 
+    data.fop_sr = (
+        pd.Series(fop_list, index=use_state_names))
+
+    # # # ------------- WATCH TODO
+    # #  # TODO: CHANGE THE WAY THAT'S AGGREGATED. MUST BE BY REFERENCE DATES
+    # #  # TODO CONTINUE (Not here) JUST GO TO AGGREGATE USA DATA
+    # # # fop: FluSightForecastOperator = data.fop_sr.iloc[0]
+    #
+    # usa_q_df = data.fop_sr.iloc[0].fore_quantiles.copy()
+    # for fop in data.fop_sr.iloc[1:]:
+    #     if fop.fore_quantiles is not None:
+    #         usa_q_df += fop.fore_quantiles
+    #
+    # # ---
+    # from matplotlib import pyplot as plt
+    # fig, ax = plt.subplots()
+    #
+    # # # US
+    # # ax.plot(truth_df.xs(state_name_to_id["US"], level="location")["value"])
+    # # ax.plot(usa_q_df.loc[0.5])
+    #
+    # # A given state
+    # state_name = "Wyoming"
+    # fop: FluSightForecastOperator = data.fop_sr.loc["California"]
+    #
+    # ax.plot(truth_obj.xs_state_weekly(
+    #     "California", params.postprocessing["aggr_ref_tlabel"]))
+    # ax.plot(fop.fore_quantiles.loc[0.5], "--")
+    #
+    # # WATCH
+    # print(fop.fore_quantiles)
+    #
+    # rotate_ax_labels(ax)
+    # ax.set_xlim(pd.Timestamp("2023-03-30"), pd.Timestamp("2023-09-01"))
+    #
+    # plt.show()
+
+
+def calculate_for_usa(params: Params, data: Data):
+    pass
 
 
 if __name__ == "__main__":
