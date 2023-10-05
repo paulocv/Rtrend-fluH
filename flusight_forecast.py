@@ -6,6 +6,7 @@ import argparse
 import datetime
 import os
 import sys
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -34,6 +35,7 @@ from rtrend_interface.parsel_utils import (
     load_truth_cdc_simple,
     make_file_friendly_name,
     make_state_index,
+    FluSightDates,
 )
 from rtrend_interface.truth_data_structs import FluDailyTruthData
 
@@ -82,8 +84,9 @@ def main():
     import_simulation_data(params, data)
     run_forecasts_once(params, data)
     calculate_for_usa(params, data)
+    postprocess_all(params, data)
+    export_all(params, data)
 
-    # Manually reporting exec time
     report_execution_times()
 
 
@@ -128,8 +131,10 @@ class Params:
     """All parameters. Include hardcoded script params, those read
     from inputs, and overriden by command line flags.
     """
+
     input_dict: dict  # Contains all inputs read from the file.
-    call_time: datetime.datetime
+    call_time: datetime.datetime  # Program call time
+    now: pd.Timestamp  # Time regarded as "now" for FluSight submission
 
     general: dict
     preprocessing: dict
@@ -142,6 +147,7 @@ class Params:
     filt_col_name: str
     filtround_col_name: str
     ncpus: int
+    export: bool
 
 
 class Data:
@@ -149,6 +155,8 @@ class Data:
     Input data is reserved for large structures. Smaller ones that
     can be manually set should be reserved as parameters.
     """
+    dates: FluSightDates
+
     pop_df: pd.DataFrame  # Data frame with population demographic data
     truth: FluDailyTruthData  # Object that holds daily truth data
     all_state_names: list  # Names of all available locations to forecast
@@ -160,6 +168,9 @@ class Data:
     fop_sr: pd.Series  # Series of forecast operators, keyed by state
     fop_sr_valid_mask: pd.Series
     usa: USAForecast  # Results for the USA level
+
+    flusight_df: pd.DataFrame  # Exportable dataframe for FluSight
+    main_quantile_df: pd.DataFrame  # Forecast quantiles for plotting
 
 
 #
@@ -197,10 +208,17 @@ def parse_args():
     #
     # --- Optional flags - SET TO NONE to have no effect
     parser.add_argument(
+        "--now", type=pd.Timestamp,
+        help="Timestamp to be considered as \"now\". Defaults to "
+             "pandas.Timestamp.now().",
+        default=pd.Timestamp.now("US/Eastern"),
+    )
+
+    parser.add_argument(
         "--export", action=argparse.BooleanOptionalAction,
         help="Whether the outputs (results of the preprocessing and "
              "R(t) estimation) should be exported to files.",
-        default=None,
+        default=True,
     )
 
     return parser.parse_args()  # When all arguments are defined here
@@ -241,6 +259,7 @@ def import_params(args: CLArgs):
     return params
 
 
+@GLOBAL_XTT.track()
 def import_simulation_data(params: Params, data: Data):
     # --------------------
     # IMPORT DEMOGRAPHIC DATA
@@ -289,29 +308,6 @@ def report_execution_times():
 #
 
 
-def load_truth_for_day_pres(params: Params, day_pres):
-    """Loads a truth file of a given date, using a given directory
-    and format string for the file name.
-    """
-    # Extracts the date of the file for that given day_pres
-    date_str = (
-        (day_pres + pd.Timedelta(params.general["forecast_days_ahead"], "d"))
-        .date()
-        .isoformat()
-    )
-
-    # Create the file name
-    truth_fname = os.path.join(
-        params.general["hosp_data_dir"],
-        params.general["hosp_data_fmt"].format(date=date_str))
-
-    # Load the data as a dataframe
-    truth_df = load_truth_cdc_simple(truth_fname)  # About 5MB.
-    _LOGGER.debug(f"Truth file {truth_fname} loaded for day_pres = {day_pres.date().isoformat()}.")
-
-    return truth_df
-
-
 # -------------------------------------------------------------------
 # MAIN TRAINING ROUTINES
 # -------------------------------------------------------------------
@@ -319,7 +315,6 @@ def load_truth_for_day_pres(params: Params, day_pres):
 
 #
 
-# @LOCAL_XTT.track()
 @GLOBAL_XTT.track()
 def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     """Runs the forecast with the
@@ -339,9 +334,14 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     truth_df = data.truth.raw_data
 
     # --- Defines relevant dates from the truth files
-    day_index = (truth_df.index.get_level_values("date").unique()
-                 .sort_values())
-    day_pres = day_index[params.general["day_pres_id"]]
+    data.dates = FluSightDates(
+        params.now,
+        due_example=params.general.get("due_example", None),
+        ref_example=params.general.get("ref_example", None),
+    )
+    date_index = (truth_df.index.get_level_values("date").unique()
+                  .sort_values())
+    day_pres = date_index[params.general["day_pres_id"]]
     day_pres_str = day_pres.date().isoformat()
 
     # --- Unpacks structs to pass into subprocesses
@@ -385,12 +385,15 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
         # --------------------------
         try:
             fop.run()
+
         except Exception:
             fop.logger.critical("Created an unhandled exception.")
             raise
 
+        finally:
+            fop.dump_heavy_stuff()
+
         # ----
-        fop.dump_heavy_stuff()
 
         return fop
 
@@ -485,18 +488,28 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     # plt.show()
 
 
+@GLOBAL_XTT.track()
 def calculate_for_usa(params: Params, data: Data):
 
     data.usa = USAForecast()
     data.usa.raw_incid_sr = data.truth.xs_state("US")
 
-    # Filter invalid
+    # --- Filter invalid forecasts
     fop_sr = data.fop_sr.loc[data.fop_sr_valid_mask]
     if fop_sr.shape[0] == 0:  # Valid dataset is empty
         _LOGGER.error(
             "No forecasts were produced with the `success` flag set to"
             " `True`. The program will quit.")
         sys.exit(1)
+
+    if fop_sr.shape[0] < data.fop_sr.shape[0]:
+        diff = data.fop_sr.shape[0] - fop_sr.shape[0]
+        _LOGGER.warning(
+            f"{diff} out of {data.fop_sr.shape[0]} "
+            f"states did not produce successful "
+            f"forecasts. The USA ensemble will be built without these "
+            f"states."
+        )
 
     # Quantile forecasts
     # ------------------
@@ -509,7 +522,7 @@ def calculate_for_usa(params: Params, data: Data):
     # -----------------------------------
     # TODO
 
-    # #  ------------- TODO TEST WATCH
+    # #  ------------- TODO TEST
     # print(data.usa.fore_quantiles)
     # import matplotlib.pyplot as plt
     #
@@ -526,6 +539,144 @@ def calculate_for_usa(params: Params, data: Data):
     # )
     # rotate_ax_labels(ax)
     # plt.show()
+
+
+@GLOBAL_XTT.track()
+def postprocess_all(params: Params, data: Data):
+    """"""
+
+    # Filter invalid
+    fop_sr = data.fop_sr.loc[data.fop_sr_valid_mask]
+
+    # -------------------------------------------
+    # Provide some status feedback
+    # -------------------------------------------
+    print("\n=======================================\n")
+    print(f"- Now date ................ {data.dates.now} ")
+    print(f"- Next submission due date  {data.dates.due} ")
+    print(f"- Reference date .......... {data.dates.ref} ")
+
+    # -------------------------------------------
+    # FluSight export format – QUANTILE forecasts
+    # -------------------------------------------
+
+    # Loop to list the exportable dataframes of each state
+    def build_flusight_quantile_df(
+            state_name, fop):
+        """Make the quantile forecast for one location, which may
+        include the US.
+        #DEVNOTE: `fop` should also be compatible with USAForecast
+        """
+
+        fop: FluSightForecastOperator | USAForecast
+        d = OrderedDict()  # Dict that's used to construct the dataframe
+
+        size = fop.fore_quantiles.size  # Total number of items
+
+        # Stack state data
+        # -----------------
+        stack = fop.fore_quantiles.stack()
+
+        d["output_type_id"] = stack.index.get_level_values(0)
+
+        # Forecast index weeks by Sunday, but now
+        #   FluSight indexes by Saturday. So we need to subtract 1 day.
+        #  v  v
+        d["target_end_date"] = stack.index.get_level_values(1) - pd.Timedelta("1d")
+
+        # Calculate horizon number
+        d["horizon"] = (
+            (d["target_end_date"] - data.dates.ref) // pd.Timedelta("1w")
+        ).astype(int)
+
+        # Generate other arrays
+        # ---------------------
+        d["reference_date"] = np.repeat(data.dates.ref.date(), size)  # TODO REPLACE
+        d["location"] = np.repeat(data.state_name_to_id[state_name], size)
+        d["output_type"] = np.repeat("quantile", size)
+        d["target"] = np.repeat("wk inc flu hosp", size)
+
+        d["value"] = stack.values
+
+        return pd.DataFrame(d)
+
+    # --- Runs the function for all states and for US
+    concat_df_list = list()
+    for _state_name, _fop in fop_sr.items():
+        concat_df_list.append(
+            build_flusight_quantile_df(_state_name, _fop)
+        )
+
+    # USA
+    concat_df_list.append(
+        build_flusight_quantile_df("US", data.usa)
+    )
+
+    # Concatenate into a single dataframe for the quantile forecast
+    flusight_quantiles_df = pd.concat(concat_df_list)
+
+    # ------------------------------------------------------------
+    # FluSight export format – RATE CHANGE (CATEGORICAL) forecasts
+    # ------------------------------------------------------------
+
+    # TODO
+
+    # ------------------------------------------------------------
+    # Overall FluSight export data postprocessing
+    # ------------------------------------------------------------
+
+    # Concatenate into a single dataframe
+    df = pd.concat([flusight_quantiles_df, ])
+
+    # Select only desired horizons to export
+    use_horizons = params.general.get("export_horizons", None)
+    if use_horizons:
+        data.flusight_df = df.loc[df["horizon"].isin(use_horizons)]
+    else:
+        data.flusight_df = df
+
+    # ------------------------------------------------------------
+    # Other forecast reports
+    # ------------------------------------------------------------
+
+    # Quantile forecast data
+    # ----------------------
+    q_dfs = [fop.fore_quantiles for _, fop in fop_sr.items()]
+    keys = [state_name for state_name, _ in fop_sr.items()]
+    data.main_quantile_df = pd.concat(
+        q_dfs, keys=keys, names=["location_name", "quantile"])
+
+    # R(t) statistics
+    # ---------------
+    # TODO: collect (tip: make a dataframe out of a subset of the extra dict, then concat)
+    r_test_srs = [fop.extra["rt_past_median"] for _, fop in fop_sr.items()]
+
+
+@GLOBAL_XTT.track()
+def export_all(params: Params, data: Data):
+    """"""
+
+    if not params.export:
+        _LOGGER.warning(
+            "`params.export` is False. No outputs will be exported to "
+            "files."
+        )
+        return
+
+    # ------------------------------------------------------------------
+    # FluSight forecast file
+    # ------------------------------------------------------------------
+    data.flusight_df.to_csv("TEST_flusight.csv", index=False)  # TODO change file name
+
+    # ------------------------------------------------------------------
+    # Other forecast report files
+    # ------------------------------------------------------------------
+    data.main_quantile_df.to_csv("TEST_q_df.csv")
+
+    # - Quantiles
+    # - Categorical
+    # - R(t) quantiles
+    # - Preprocessed data
 
 
 if __name__ == "__main__":
