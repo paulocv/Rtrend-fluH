@@ -19,6 +19,13 @@ from rtrend_forecast.reporting import (
 )
 from rtrend_forecast.structs import RtData, get_tg_object
 from rtrend_forecast.utils import map_parallel_or_sequential
+from rtrend_interface.flusight_tools import (
+    FluSightDates,
+    calc_rate_change_categorical_flusight,
+    calc_horizon_from_dates,
+    rate_change_i_to_name,
+    calc_target_date_from_horizon,
+)
 from rtrend_interface.forecast_operators import (
     WEEKLEN,
     ParSelTrainOperator,
@@ -35,7 +42,6 @@ from rtrend_interface.parsel_utils import (
     load_truth_cdc_simple,
     make_file_friendly_name,
     make_state_index,
-    FluSightDates,
 )
 from rtrend_interface.truth_data_structs import FluDailyTruthData
 
@@ -83,6 +89,7 @@ def main():
 
     import_simulation_data(params, data)
     run_forecasts_once(params, data)
+    # calculate_rate_change_forecasts(params, data)
     calculate_for_usa(params, data)
     postprocess_all(params, data)
     export_all(params, data)
@@ -156,8 +163,10 @@ class Data:
     can be manually set should be reserved as parameters.
     """
     dates: FluSightDates
+    day_pres: pd.Timestamp
 
     pop_df: pd.DataFrame  # Data frame with population demographic data
+    count_rates: pd.DataFrame  # Count thresholds for rate forecast
     truth: FluDailyTruthData  # Object that holds daily truth data
     all_state_names: list  # Names of all available locations to forecast
     state_name_to_id: dict  # From `location_name` to `location`
@@ -168,6 +177,9 @@ class Data:
     fop_sr: pd.Series  # Series of forecast operators, keyed by state
     fop_sr_valid_mask: pd.Series
     usa: USAForecast  # Results for the USA level
+
+    rate_fore_df: pd.DataFrame   # a.loc[(state_name, rate_change_id), horizon] = probability
+    #  ^ ^ Rate change forecasts.
 
     flusight_df: pd.DataFrame  # Exportable dataframe for FluSight
     main_quantile_df: pd.DataFrame  # Forecast quantiles for plotting
@@ -316,7 +328,7 @@ def report_execution_times():
 #
 
 @GLOBAL_XTT.track()
-def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
+def run_forecasts_once(params: Params, data: Data):
     """Runs the forecast with the
     given parameters, for all locations and selected dates.
     """
@@ -341,13 +353,18 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     )
     date_index = (truth_df.index.get_level_values("date").unique()
                   .sort_values())
-    day_pres = date_index[params.general["day_pres_id"]]
+    data.day_pres = day_pres = date_index[params.general["day_pres_id"]] + pd.Timedelta("1d")
+    #  ^  ^ Adds one day so that -1 is the first without data
     day_pres_str = day_pres.date().isoformat()
 
     # --- Unpacks structs to pass into subprocesses
     use_state_names = data.use_state_names
     state_name_to_id = data.state_name_to_id
     pop_df = data.pop_df
+
+    # --------------------------------
+    # Define and run the forecast task
+    # --------------------------------
 
     def state_task(state_inputs):
         """Forecast for one location and date."""
@@ -409,6 +426,35 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     data.fop_sr_valid_mask = data.fop_sr.map(
         lambda fop: fop.success
     )
+
+    #
+
+    # ----------------------------------------------
+    # Calculate the categorical rate change forecast
+    # ----------------------------------------------
+    fop_sr = data.fop_sr.loc[data.fop_sr_valid_mask]  # Filter
+
+    results = list()
+    for _state_name, _fop in fop_sr.items():
+
+        # Calculate rate changes
+        df = calc_rate_change_categorical_flusight(
+            _fop,
+            count_rates=data.count_rates.loc[_state_name],
+            dates=data.dates,
+            day_pres=data.day_pres,
+        )
+
+        results.append(df)
+
+    data.rate_fore_df = pd.concat(
+        results,
+        keys=fop_sr.keys(),
+        names=["location_name", "rate_change_id"]
+    )
+    data.rate_fore_df.columns.name = "horizon"
+
+    _LOGGER.log(15, "Rate change forecast concluded.")
 
 
     # # TODO DEBUG: why so big numbers??!??/
@@ -521,6 +567,8 @@ def calculate_for_usa(params: Params, data: Data):
     # Categorical – Rate change forecasts
     # -----------------------------------
     # TODO
+    # TODO: for the USA (needs some extra info in the US, including
+    #    the SUM OF AGGREGATED *TRAJECTORIES*
 
     # #  ------------- TODO TEST
     # print(data.usa.fore_quantiles)
@@ -555,6 +603,7 @@ def postprocess_all(params: Params, data: Data):
     print(f"- Now date ................ {data.dates.now} ")
     print(f"- Next submission due date  {data.dates.due} ")
     print(f"- Reference date .......... {data.dates.ref} ")
+    print(f"- Forecast day_present .... {data.day_pres}")
 
     # -------------------------------------------
     # FluSight export format – QUANTILE forecasts
@@ -586,7 +635,8 @@ def postprocess_all(params: Params, data: Data):
 
         # Calculate horizon number
         d["horizon"] = (
-            (d["target_end_date"] - data.dates.ref) // pd.Timedelta("1w")
+            # (d["target_end_date"] - data.dates.ref) // pd.Timedelta("1w")
+            calc_horizon_from_dates(d["target_end_date"], data.dates.ref)
         ).astype(int)
 
         # Generate other arrays
@@ -619,14 +669,40 @@ def postprocess_all(params: Params, data: Data):
     # FluSight export format – RATE CHANGE (CATEGORICAL) forecasts
     # ------------------------------------------------------------
 
-    # TODO
+    # Initialize the FluSight dataframe as a stack from the other
+    df = pd.DataFrame(data.rate_fore_df.stack(), columns=["value"])
+
+    # Build other columns
+    df["location"] = df.index.get_level_values("location_name").map(
+        lambda name: data.state_name_to_id[name]
+    )
+    df["target"] = np.repeat("wk flu hosp rate change", df.shape[0])
+
+    # Date-related
+    df["reference_date"] = np.repeat(data.dates.ref.date(), df.shape[0])
+    df["horizon"] = df.index.get_level_values("horizon")
+    df["target_end_date"] = calc_target_date_from_horizon(
+        df["horizon"], data.dates.ref)
+
+    df["output_type"] = np.repeat("pmf", df.shape[0])
+    df["output_type_id"] = df.index.get_level_values("rate_change_id").map(
+        lambda i: rate_change_i_to_name[i],
+    )
+
+    flusight_rate_df = df
 
     # ------------------------------------------------------------
     # Overall FluSight export data postprocessing
     # ------------------------------------------------------------
 
     # Concatenate into a single dataframe
-    df = pd.concat([flusight_quantiles_df, ])
+    df = pd.concat([flusight_quantiles_df, flusight_rate_df])
+
+    # Reorder columns to a better sequence
+    df = df[
+        ["reference_date", "target", "horizon", "target_end_date",
+         "location", "output_type", "output_type_id", "value"]
+    ]
 
     # Select only desired horizons to export
     use_horizons = params.general.get("export_horizons", None)
@@ -634,6 +710,8 @@ def postprocess_all(params: Params, data: Data):
         data.flusight_df = df.loc[df["horizon"].isin(use_horizons)]
     else:
         data.flusight_df = df
+
+    print(data.flusight_df)
 
     # ------------------------------------------------------------
     # Other forecast reports
