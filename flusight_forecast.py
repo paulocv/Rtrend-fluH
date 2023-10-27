@@ -17,7 +17,7 @@ from rtrend_forecast.reporting import (
     get_rtrend_logger,
     get_main_exectime_tracker,
 )
-from rtrend_forecast.structs import RtData, get_tg_object
+from rtrend_forecast.structs import RtData, get_tg_object, IncidenceData
 from rtrend_forecast.utils import map_parallel_or_sequential
 from rtrend_interface.flusight_tools import (
     FluSightDates,
@@ -55,6 +55,8 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
     filt_col_name="filtered",
     filtround_col_name="filtered_round",
 
+    # OBS: default paths are defined in `parse_args()`
+
     ncpus=5,
 )
 
@@ -62,6 +64,8 @@ DEFAULT_PARAMS_GENERAL = dict(  # Parameters from the `general` dict
     pop_data_path="population_data/locations.csv",
     hosp_data_path="hosp_data/truth_daily_latest.csv",
     forecast_days_ahead=2,  # Forecast evaluation ahead of the day_pres
+
+    nsamples_to_us=1000,  # Number of trajectories
 )
 
 DEFAULT_PARAMS_RT_ESTIMATION = dict(  # Parameters from the `general` dict
@@ -113,9 +117,10 @@ class USAForecast:
     NOTE: this struct is taylored for the FluSight challenge. As time
     allows, a more general "forecast aggregate" class could be made.
     """
-    raw_incid_sr: pd.Series  # Complete series of incidence
+    # raw_incid_sr: pd.Series  # Complete series of incidence
     fore_quantiles: pd.DataFrame  # Aggregated period forecasted quantiles
-
+    inc: IncidenceData  #
+    logger: None
 
 #
 
@@ -154,7 +159,13 @@ class Params:
     filt_col_name: str
     filtround_col_name: str
     ncpus: int
+    nsamples_to_us: int
     export: bool
+
+    # Paths
+    input_file: Path
+    output_dir: Path
+    flusight_output_file: Path
 
 
 class Data:
@@ -182,7 +193,11 @@ class Data:
     #  ^ ^ Rate change forecasts.
 
     flusight_df: pd.DataFrame  # Exportable dataframe for FluSight
+
+    # General forecast reports
     main_quantile_df: pd.DataFrame  # Forecast quantiles for plotting
+    main_rt_past_df: pd.DataFrame
+    main_rt_fore_df: pd.DataFrame
 
 
 #
@@ -207,23 +222,45 @@ def parse_args():
     )
 
     # --- Positional paths
-    parser.add_argument(
-        "input_file", type=Path,
-        help="Path to the file with input parameters."
-    )
-    parser.add_argument(
-        "output_dir", type=Path,
-        help="Path to the output directory, where all "
-             "output files are stored."
-    )
+    # [[there are none]]
 
     #
-    # --- Optional flags - SET TO NONE to have no effect
+    # Optional flags - SET TO NONE to have no effect
+    # ----------------------------------------------------
+    # --- Parameters file
+    default = "inputs/flusight_params.yaml"
+    parser.add_argument(
+        "--input_file", "--params_file", "-i", type=Path,
+        help=f"Path to the parameters file. Defaults to {default}",
+        default=default,
+    )
+
+    # --- Regular outputs folder
+    default = "outputs/latest/"
+    parser.add_argument(
+        "--output_dir", "-o", type=Path,
+        help="Path to the output directory, where general forecast "
+             "results are exported. This is different from the FluSight"
+             " output directory (where the FluSight formatted file "
+             f"goes)! Defaults to \"{default}\"",
+        default=default,
+    )
+
+    # --- Flusight outputs file path
+    default = "forecast_out/latest.csv"
+    parser.add_argument(
+        "--flusight_output_file", "-f", type=Path,
+        help="Path to the FluSight-formatted output file. This file "
+             "is submittable to the FluSight forecast repository. "
+             f"Defaults to \"{default}\".",
+        default=default,
+    )
+
     parser.add_argument(
         "--now", type=pd.Timestamp,
         help="Timestamp to be considered as \"now\". Defaults to "
              "pandas.Timestamp.now().",
-        default=pd.Timestamp.now("US/Eastern"),
+        default=pd.Timestamp.now(),  #"US/Eastern"),
     )
 
     parser.add_argument(
@@ -457,91 +494,18 @@ def run_forecasts_once(params: Params, data: Data):
     _LOGGER.log(15, "Rate change forecast concluded.")
 
 
-    # # TODO DEBUG: why so big numbers??!??/
-    # #  ----------------------------------------------------------------
-    # _LOGGER.error("DEBUGGING STATES")
-    #
-    # rly_bad_states_sr = data.fop_sr.loc[
-    #     data.fop_sr.map(
-    #         lambda fop: fop.fore_quantiles.max().max() > 3.0E3
-    #     )
-    # ]
-    #
-    # _LOGGER.error(f"Bad states: {rly_bad_states_sr.index}")
-    # num_bad_states = rly_bad_states_sr.shape[0]
-    # ndays_past = params.rt_estimation["roi_len"]
-    #
-    # if num_bad_states == 0:  # No problems!!
-    #     return
-    #
-    # import matplotlib.pyplot as plt
-    #
-    # fig, axes = make_axes_seq(num_bad_states)
-    #
-    # for i_ax, fop in enumerate(rly_bad_states_sr):
-    #     fop: FluSightForecastOperator
-    #     ax: plt.Axes = axes[i_ax]
-    #
-    #     # -()- Plot R(t) past
-    #     ax.plot(fop.time.past_gran_idx[-ndays_past:], fop.extra["rt_past_median"])
-    #     ax.fill_between(
-    #
-    #     )
-    #     # -()- Plot R(t) fore
-    #     ax.plot(fop.time.fore_gran_idx[-ndays_past:], fop.extra["rt_fore_median"])
-    #     # ax.plot(fop.fore_quantiles.loc[0.5])
-    #
-    #     # # -()- Plot past data
-    #     # ax.plot(fop.inc.past_gran_sr)
-    #     # ax.plot(fop.extra["past_scaled_int_sr"])
-    #
-    #     rotate_ax_labels(ax)
-    #
-    # fig.tight_layout()
-    # plt.show()
-
-
-    # # # ------------- TODO TESTS
-    # #  # TODO: CHANGE THE WAY THAT'S AGGREGATED. MUST BE BY REFERENCE DATES
-    # #  # TODO CONTINUE (Not here) JUST GO TO AGGREGATE USA DATA
-    # # # fop: FluSightForecastOperator = data.fop_sr.iloc[0]
-    #
-    # usa_q_df = data.fop_sr.iloc[0].fore_quantiles.copy()
-    # for fop in data.fop_sr.iloc[1:]:
-    #     if fop.fore_quantiles is not None:
-    #         usa_q_df += fop.fore_quantiles
-    #
-    # # ---
-    # from matplotlib import pyplot as plt
-    # fig, ax = plt.subplots()
-    #
-    # # # US
-    # # ax.plot(truth_df.xs(state_name_to_id["US"], level="location")["value"])
-    # # ax.plot(usa_q_df.loc[0.5])
-    #
-    # # A given state
-    # state_name = "Wyoming"
-    # fop: FluSightForecastOperator = data.fop_sr.loc["California"]
-    #
-    # ax.plot(truth_obj.xs_state_weekly(
-    #     "California", params.postprocessing["aggr_ref_tlabel"]))
-    # ax.plot(fop.fore_quantiles.loc[0.5], "--")
-    #
-    #
-    # rotate_ax_labels(ax)
-    # ax.set_xlim(pd.Timestamp("2023-03-30"), pd.Timestamp("2023-09-01"))
-    #
-    # plt.show()
-
-
 @GLOBAL_XTT.track()
 def calculate_for_usa(params: Params, data: Data):
 
     data.usa = USAForecast()
-    data.usa.raw_incid_sr = data.truth.xs_state("US")
+    data.usa.inc = IncidenceData()
+    data.usa.inc.raw_sr = data.truth.xs_state("US")
+    data.usa.logger = _LOGGER.getChild(f"US_{data.day_pres.date()}")
+    # data.usa.raw_incid_sr = data.truth.xs_state("US")
 
-    # --- Filter invalid forecasts
-    fop_sr = data.fop_sr.loc[data.fop_sr_valid_mask]
+    # Filter invalid forecasts
+    # ------------------------
+    fop_sr: pd.Series = data.fop_sr.loc[data.fop_sr_valid_mask]
     if fop_sr.shape[0] == 0:  # Valid dataset is empty
         _LOGGER.error(
             "No forecasts were produced with the `success` flag set to"
@@ -557,6 +521,7 @@ def calculate_for_usa(params: Params, data: Data):
             f"states."
         )
 
+    # ------------------
     # Quantile forecasts
     # ------------------
     data.usa.fore_quantiles = fop_sr.iloc[0].fore_quantiles.copy()
@@ -564,29 +529,61 @@ def calculate_for_usa(params: Params, data: Data):
         if fop.fore_quantiles is not None:
             data.usa.fore_quantiles += fop.fore_quantiles
 
+    # -----------------------------------
     # Categorical – Rate change forecasts
     # -----------------------------------
-    # TODO
-    # TODO: for the USA (needs some extra info in the US, including
-    #    the SUM OF AGGREGATED *TRAJECTORIES*
 
-    # #  ------------- TODO TEST
-    # print(data.usa.fore_quantiles)
-    # import matplotlib.pyplot as plt
-    #
-    # fop: FluSightForecastOperator = fop_sr.iloc[0]
-    #
-    # fig, ax = plt.subplots()
-    #
-    # ax.plot(data.usa.raw_incid_sr)
-    # plot_fore_quantiles_as_area(ax, data.usa.fore_quantiles)
-    #
-    # ax.set_xlim(
-    #     fop.time.pg0 - pd.Timedelta("2w"),
-    #     fop.time.fa1 + pd.Timedelta("1w"),
-    # )
-    # rotate_ax_labels(ax)
-    # plt.show()
+    # Take samples from all locations
+    # -------------------------------
+    rng = np.random.default_rng(20)  # Take a temporary generator
+    df_list = list()
+
+    for state_name, fop in fop_sr.items():
+        fop: FluSightForecastOperator
+        nsamples_state, nsteps = fop.inc.fore_aggr_df.shape
+
+        # --- Take samples
+        i_samples = rng.integers(
+            0, nsamples_state, size=params.general["nsamples_to_us"]
+        )
+        df = fop.inc.fore_aggr_df.loc[i_samples, :]  # Take sample trajectories
+        # --- Sort at each date
+        df: pd.DataFrame = df.apply(lambda x: x.sort_values().values, axis=0)
+        df.reset_index(inplace=True, drop=True)
+
+        df_list.append(df)
+
+    multistate_df = pd.concat(
+        df_list, keys=list(fop_sr.keys()),
+        names=["location", "i_sample"],
+    )
+
+    # Aggregate spatially
+    # -------------------
+    data.usa.inc.fore_aggr_df = multistate_df.groupby("i_sample").sum()
+
+    # Calculate the categorical rate change forecasts
+    # -----------------------------------------------
+    df = calc_rate_change_categorical_flusight(
+        data.usa,
+        count_rates=data.count_rates.loc["US"],
+        dates=data.dates,
+        day_pres=data.day_pres,
+    )
+    # Prepare the df to be "appended" to the other states df
+    df.columns.name = "horizon"
+    df.index = pd.MultiIndex.from_product(
+        [["US"], df.index], names=["location_name", "rate_change_id"]
+    )
+    # df.index.name = "rate_change_id"
+    df.name = "US"
+
+    # data.rate_fore_df = pd.concat([data.rate_fore_df, df])
+    data.rate_fore_df = pd.concat(
+        [data.rate_fore_df, df])
+
+    data.usa.logger.log(
+        15, "USA quantile and rate change aggregations concluded.")
 
 
 @GLOBAL_XTT.track()
@@ -641,7 +638,7 @@ def postprocess_all(params: Params, data: Data):
 
         # Generate other arrays
         # ---------------------
-        d["reference_date"] = np.repeat(data.dates.ref.date(), size)  # TODO REPLACE
+        d["reference_date"] = np.repeat(data.dates.ref.date(), size)
         d["location"] = np.repeat(data.state_name_to_id[state_name], size)
         d["output_type"] = np.repeat("quantile", size)
         d["target"] = np.repeat("wk inc flu hosp", size)
@@ -696,7 +693,10 @@ def postprocess_all(params: Params, data: Data):
     # ------------------------------------------------------------
 
     # Concatenate into a single dataframe
-    df = pd.concat([flusight_quantiles_df, flusight_rate_df])
+    df = pd.concat(
+        [flusight_quantiles_df, flusight_rate_df],
+        ignore_index=True
+    )
 
     # Reorder columns to a better sequence
     df = df[
@@ -721,13 +721,40 @@ def postprocess_all(params: Params, data: Data):
     # ----------------------
     q_dfs = [fop.fore_quantiles for _, fop in fop_sr.items()]
     keys = [state_name for state_name, _ in fop_sr.items()]
+
+    q_dfs.append(data.usa.fore_quantiles)
+    keys.append("US")
+
     data.main_quantile_df = pd.concat(
         q_dfs, keys=keys, names=["location_name", "quantile"])
 
     # R(t) statistics
     # ---------------
-    # TODO: collect (tip: make a dataframe out of a subset of the extra dict, then concat)
-    r_test_srs = [fop.extra["rt_past_median"] for _, fop in fop_sr.items()]
+    rt_past_dfs = list()
+    rt_fore_dfs = list()
+    keys = list()
+    for state_name, fop in fop_sr.items():
+        fop: FluSightForecastOperator
+        # --- Select R(t) stats series from extras
+        df_past = pd.DataFrame(
+            {key: value for key, value in fop.extra.items()
+             if "rt_past" in key}
+        )
+        df_fore = pd.DataFrame(
+            {key: value for key, value in fop.extra.items()
+             if "rt_fore" in key}
+        )
+
+        rt_past_dfs.append(df_past)
+        rt_fore_dfs.append(df_fore)
+        keys.append(state_name)
+
+    data.main_rt_past_df = pd.concat(
+        rt_past_dfs, keys=keys, names=["location_name", "date"],
+    )
+    data.main_rt_fore_df = pd.concat(
+        rt_fore_dfs, keys=keys, names=["location_name", "date"],
+    )
 
 
 @GLOBAL_XTT.track()
@@ -744,17 +771,32 @@ def export_all(params: Params, data: Data):
     # ------------------------------------------------------------------
     # FluSight forecast file
     # ------------------------------------------------------------------
-    data.flusight_df.to_csv("TEST_flusight.csv", index=False)  # TODO change file name
+    params.flusight_output_file.parent.mkdir(parents=True, exist_ok=True)
+    data.flusight_df.to_csv(params.flusight_output_file, index=False)
 
     # ------------------------------------------------------------------
     # Other forecast report files
     # ------------------------------------------------------------------
-    data.main_quantile_df.to_csv("TEST_q_df.csv")
+    params.output_dir.mkdir(parents=True, exist_ok=True)
 
-    # - Quantiles
-    # - Categorical
-    # - R(t) quantiles
-    # - Preprocessed data
+    # Quantile forecasts
+    path = params.output_dir.joinpath("quantile_forecasts.csv")
+    data.main_quantile_df.to_csv(path)
+
+    # Reproduction number: past and forecast
+    path = params.output_dir.joinpath("rt_past.csv")
+    data.main_rt_past_df.to_csv(path)
+
+    path = params.output_dir.joinpath("rt_fore.csv")
+    data.main_rt_fore_df.to_csv(path)
+
+    # ----- Suggested files to export --------
+    # - [ ] Metadata, summary, as you please
+    #     - now, ref_date, call_time, etc...
+    # - [x] Quantiles
+    # - [ ]  Categorical
+    # - [x]  R(t) quantiles
+    # - [ ] Preprocessed data
 
 
 if __name__ == "__main__":
