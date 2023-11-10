@@ -230,7 +230,7 @@ def parse_args():
     # --- Parameters file
     default = "inputs/flusight_params.yaml"
     parser.add_argument(
-        "--input_file", "--params_file", "-i", type=Path,
+        "--input-file", "--params-file", "-i", type=Path,
         help=f"Path to the parameters file. Defaults to {default}",
         default=default,
     )
@@ -238,7 +238,7 @@ def parse_args():
     # --- Regular outputs folder
     default = "outputs/latest/"
     parser.add_argument(
-        "--output_dir", "-o", type=Path,
+        "--output-dir", "-o", type=Path,
         help="Path to the output directory, where general forecast "
              "results are exported. This is different from the FluSight"
              " output directory (where the FluSight formatted file "
@@ -249,7 +249,7 @@ def parse_args():
     # --- Flusight outputs file path
     default = "forecast_out/latest.csv"
     parser.add_argument(
-        "--flusight_output_file", "-f", type=Path,
+        "--flusight-output-file", "-f", type=Path,
         help="Path to the FluSight-formatted output file. This file "
              "is submittable to the FluSight forecast repository. "
              f"Defaults to \"{default}\".",
@@ -304,6 +304,9 @@ def import_params(args: CLArgs):
             params.rt_estimation[key] = val
 
     # You can rename parameters here.
+    if not params.export:
+        _LOGGER.warn(
+            " --- EXPORT SWITCH IS OFF --- No outputs will be produced.")
 
     return params
 
@@ -473,13 +476,15 @@ def run_forecasts_once(params: Params, data: Data):
 
     results = list()
     for _state_name, _fop in fop_sr.items():
+        last_observed_date = _fop.raw_incid_sr.index.max()
 
         # Calculate rate changes
         df = calc_rate_change_categorical_flusight(
             _fop,
             count_rates=data.count_rates.loc[_state_name],
             dates=data.dates,
-            day_pres=data.day_pres,
+            # day_pres=data.day_pres,
+            last_observed_date=last_observed_date
         )
 
         results.append(df)
@@ -561,6 +566,7 @@ def calculate_for_usa(params: Params, data: Data):
     # Aggregate spatially
     # -------------------
     data.usa.inc.fore_aggr_df = multistate_df.groupby("i_sample").sum()
+    last_observed_date = data.usa.inc.raw_sr.index.max()
 
     # Calculate the categorical rate change forecasts
     # -----------------------------------------------
@@ -568,7 +574,8 @@ def calculate_for_usa(params: Params, data: Data):
         data.usa,
         count_rates=data.count_rates.loc["US"],
         dates=data.dates,
-        day_pres=data.day_pres,
+        # day_pres=data.day_pres,
+        last_observed_date=last_observed_date,
     )
     # Prepare the df to be "appended" to the other states df
     df.columns.name = "horizon"
