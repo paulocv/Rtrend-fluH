@@ -1,11 +1,9 @@
 """
 Performs a training loop for the parameter selection maching of
 Rtrend forecasts.
-Relies on preprocessed data loaded from files.
 
-* 2023-11-10: This script was written assuming that preprocessing could
-  be done outside the training loop; this idea was later rejected. A
-  completely refurbished version will be done instead.
+This implements the "Par. select. with preprocessing" pipeline, which
+also performs preprocessing within each forecasting loop.
 
 """
 
@@ -40,8 +38,10 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
     filt_col_name="filtered",
     filtround_col_name="filtered_round",
 
-    # Parallelization (use either, not both)
-    ncpus_dates=5,
+    export=True,
+
+    # Parallel (DON'T USE BOTH - Subprocesses can't have children)
+    ncpus_dates=4,
     ncpus_states=1,
 )
 
@@ -76,10 +76,7 @@ def main():
     import_simulation_data(params, data)
 
     # run_training(params, data)  # THIS WILL RUN THE SEASON MULTIPLE TIMES
-    run_forecasts_once(params, data)  # RUNS once FOR ONE "SEASON"!
-
-    # # --- TEST FUNCTION
-    # dev_synth_one_data(params, data)
+    run_forecasts_once(params, data)  # RUNS once FOR ONE "SEASON", ALL LOCATIONS
 
     # Manually reporting exec time
     print("-------------------\nEXECUTION TIMES")
@@ -122,6 +119,7 @@ class Params:
     filtround_col_name: str
     ncpus_dates: int
     ncpus_states: int
+    export: bool
 
 
 class Data:
@@ -136,6 +134,7 @@ class Data:
     day_pres_seq: pd.DatetimeIndex  # Sequence of present days to use
     use_state_names: None  # Names of locations that shall be used.
     date_state_idx: pd.MultiIndex  # Combined index for dates and states
+    truth_df_sr: pd.Series  # sr.loc[day_pres] = truth_df
     # summary_metrics_df: pd.DataFrame  # Overall summary metrics
 
 
@@ -175,8 +174,8 @@ def parse_args():
     # --- Optional flags - SET TO NONE to have no effect
     parser.add_argument(
         "--export", action=argparse.BooleanOptionalAction,
-        help="Whether the outputs (results of the preprocessing and "
-             "R(t) estimation) should be exported to files.",
+        help="Whether the outputs (results of the training procedure) "
+             "should be exported to files.",
         default=None,
     )
 
@@ -215,6 +214,10 @@ def import_params(args: CLArgs):
 
     # You can rename parameters here.
 
+    if not params.export:
+        _LOGGER.warn(
+            " --- EXPORT SWITCH IS OFF --- No outputs will be produced.")
+
     return params
 
 
@@ -231,11 +234,22 @@ def import_simulation_data(params: Params, data: Data):
 
     data.__dict__.update(load_population_data(pop_fname))
 
-    # -------------------
-    # IMPORT OR PREPARE PREPROCESSING DATA
-    # -------------------
+    # --------------------
+    # BUILD ITERABLES
+    # --------------------
+    # Sequence of `day_pres` and `state_names` values
+    # As well as a product of the two (`date_state_idx`)
+    data.day_pres_seq, data.use_state_names, data.date_state_idx = (
+        make_date_state_index(params.general, data.all_state_names))
 
-    # THIS May be done with a stream instead. Let's see.
+    # ------------------------------------
+    # IMPORT ALL REQUIRED TRUTH DATA FILES
+    # ------------------------------------
+    data.truth_df_sr = pd.Series(
+        [load_truth_for_day_pres(params, day_pres)
+         for day_pres in data.day_pres_seq],
+        index=data.day_pres_seq
+    )
 
 
 #
@@ -296,11 +310,9 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     # --------------------
     # Prepare the loop
     # --------------------
-    data.day_pres_seq, data.use_state_names, data.date_state_idx = (
-        make_date_state_index(params.general, data.all_state_names))
 
     # Unpacks structs to pass into subprocesses
-    day_pres_seq = data.day_pres_seq
+    # day_pres_seq = data.day_pres_seq
     use_state_names = data.use_state_names
     state_name_to_id = data.state_name_to_id
     pop_df = data.pop_df
@@ -309,13 +321,15 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
 
     def date_task(date_inputs):
         """Forecast for one date, all states."""
-        i_date, day_pres = date_inputs
+        # i_date, day_pres = date_inputs
+        i_date, (day_pres, truth_df) = date_inputs
 
         day_pres: pd.Timestamp
         day_pres_str = day_pres.date().isoformat()
 
-        truth_df = load_truth_for_day_pres(params, day_pres)
-        #  ^ ^ Passed to state subprocess.
+        # # -()- Load from file
+        # (Now it's preloaded)
+        # truth_df = load_truth_for_day_pres(params, day_pres)
 
         def state_task(state_inputs):
             """Forecast for one location and date."""
@@ -352,16 +366,18 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
             # --------------------------
             fop.run()
 
-            # # TEST STUFF HERE TODO
-            # print(f"Watch {fop.name}\n"
-            #       # f"{fop.inc.fore_aggr_df}\n"
-            #       f"{fop.fore_quantiles}\n"
-            #       )
+            # TEST STUFF HERE
+            print(f"Watch {fop.name}\n"
+                  # f"{fop.inc.fore_aggr_df}\n"
+                  f"{fop.fore_quantiles}\n"
+                  )
 
             # ----
             fop.dump_heavy_stuff()
 
             return fop
+
+        # --------------------------------- End of state_task ---
 
         # --- Run for states
         return map_parallel_or_sequential(
@@ -370,7 +386,9 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
 
     # --- Run for dates
     date_state_fop_list = map_parallel_or_sequential(
-        date_task, enumerate(day_pres_seq), params.ncpus_dates
+        date_task,
+        enumerate(zip(data.day_pres_seq, data.truth_df_sr)),
+        params.ncpus_dates
     )
 
 
