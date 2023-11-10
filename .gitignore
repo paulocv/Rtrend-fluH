@@ -11,6 +11,8 @@
 !*.py
 !rtrend_tools/
 !rtrend_tools/*.py
+!rtrend_interface/
+!rtrend_interface/*.py
 
 # Re-ignore specific py files
 calc_season_stats.py
