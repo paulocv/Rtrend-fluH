@@ -15,7 +15,7 @@
 # Re-ignore specific py files
 calc_season_stats.py
 apagar.py
-parsel_*.py
+#parsel_*.py
 eval_param_selection.py
 simple_sir_tester.py
 generic_script_template.py
