@@ -72,6 +72,10 @@ DEFAULT_PARAMS_RT_ESTIMATION = dict(  # Parameters from the `general` dict
     use_tmp=True
 )
 
+DEFAULT_PARAMS_POSTPROCESSING = dict(  # Defaults for `postprocessing`
+    use_aggr_level="aggr",
+)
+
 # Helpful objects from the Rtrend library
 GLOBAL_XTT = get_main_exectime_tracker()
 _LOGGER = get_rtrend_logger().getChild(__name__)
@@ -302,6 +306,10 @@ def import_params(args: CLArgs):
     for key, val in DEFAULT_PARAMS_RT_ESTIMATION.items():
         if key not in params.rt_estimation:
             params.rt_estimation[key] = val
+
+    for key, val in DEFAULT_PARAMS_POSTPROCESSING.items():
+        if key not in params.postprocessing:
+            params.postprocessing[key] = val
 
     # You can rename parameters here.
     if not params.export:
@@ -718,6 +726,7 @@ def postprocess_all(params: Params, data: Data):
     else:
         data.flusight_df = df
 
+    print("Flusight exportable dataframe:")
     print(data.flusight_df)
 
     # ------------------------------------------------------------
@@ -798,6 +807,7 @@ def export_all(params: Params, data: Data):
     data.main_rt_fore_df.to_csv(path)
 
     # ----- Suggested files to export --------
+    # TODO implement more
     # - [ ] Metadata, summary, as you please
     #     - now, ref_date, call_time, etc...
     # - [x] Quantiles
