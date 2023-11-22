@@ -30,7 +30,6 @@ general:
   tg_max: 30
 
 
-
 # --- PREPROCESSING
 preprocessing:
   
@@ -41,7 +40,7 @@ preprocessing:
   denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
 
   # For lowpass/polyfit method
-  denoise_cutoff: 0.04
+  denoise_cutoff: 0.10
   denoise_order: 2
   denoise_seed: 10
   
@@ -57,8 +56,8 @@ rt_estimation:
 
   # Data scaling
   scale_method: data_pwr  # const, data_pwr, pop_pwr?
-  scale_power: 0.80   # Pwr method: scaled = (ref / avg) ** power
-  scale_ref_inc: 500 # 65  # Reference incidence for scaling ["data_pwr" method]
+  scale_power: 0.95   # Pwr method: scaled = (ref / avg) ** power. Values lower than 1 add uncertainty to lower incidence and remove from higher.
+  scale_ref_inc: 900 # 65  # Reference incidence for scaling ["data_pwr" method]
   scale_ref_pop: 12000  # Reference population for scaling ["pop_pwr" method]
   # scale_factor: 1.2  # ["const" method; overridden by other methods]
 
@@ -81,10 +80,10 @@ rt_synthesis:
   r_max: 6.0     # [UPDATE: rejects any estimate ensemble that reaches this threshold] Clamp up to these R values (for the average)
 
   # Drift synth-reconstruction parameters
-  drift_pop_coef: 15.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t). Higher = more drift.
+  drift_pop_coef: 20.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t). Higher = more drift.
 #  drift_coef: 1.0e-3  # Pure drift coefficient. Drift = coef * c(t). Overriden by other methods.
   rw_coef: 0.0
-  bias: 0.10  # Previous: 0.06
+  bias: 0.02
 
   # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
   k_start: 0.95    # Ramp method: starting coefficient

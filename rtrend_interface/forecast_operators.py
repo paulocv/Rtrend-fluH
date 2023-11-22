@@ -144,6 +144,7 @@ class ParSelTrainOperator(ForecastOperator):
 
     # Declared members
     fore_quantiles: pd.DataFrame
+    #  ^ ^ Redundant to self.inc.aggr_quantiles or self.inc.gran_quantiles
 
     def __init__(
             self,
@@ -173,6 +174,26 @@ class ParSelTrainOperator(ForecastOperator):
         PreprocessOperator or loads buffered data to achieve the
         same internal state.
         """
+
+        # EXCEPTIONS (PREPROCESSING TIME)
+        # # OVERESTIMATED DRIFT: 2023-11-18
+        if ("Puerto-Rico" in self.name
+            or "Alaska" in self.name
+        ):
+            # self.sp["bias"] = 0.0
+            self.sp["drift_pop_coef"] = 10.E3
+            # self.
+
+        # Huge drop – strenghten filter 2023-11-25
+        if "Alaska" in self.name:
+            self.sp["bias"] = 0.05
+            self.pp["denoise_cutoff"] = 0.03
+
+        # California forecast too confident and has no drift 2023-11-25
+        if "California" in self.name:
+            self.sp["bias"] = 0.0
+            self.sp["drift_pop_coef"] *= 1.5
+            self.ep["scale_ref_inc"] /= 3.5
 
         if True:  # Placeholder: for now, does not load from file
             ParSelPreprocessOperator.callback_preprocessing(self)
@@ -236,6 +257,7 @@ class ParSelTrainOperator(ForecastOperator):
 
         # EXCEPTIONS
         # --------------------------------------------
+        # ==============================================
         # --- TMP FIX: NOT ENOUGH CASES TO RECONSTRUCT
         n_past = 8   # How many days in the past to check
         c_min = 1.0  # Minimum number of cases expected
@@ -249,17 +271,13 @@ class ParSelTrainOperator(ForecastOperator):
                 f"Added {add} to the daily incidence so to have cases"
                 f" to feed the renewal equation.")
 
-            # # --- Use rnd normal synth
-            # synth_method = self.sp["synth_method"] = "rnd_normal"
-            # self.logger.info(
-            #     f"Changed method to `rnd_normal`.")
+            # --- Use rnd normal synth
+            synth_method = self.sp["synth_method"] = "rnd_normal"
+            self.logger.info(
+                f"Changed method to `rnd_normal`.")
 
-        # # SOUTH CAROLINA 2023-10-11
-        # if ("South-Carolina" in self.name
-        #     or "Virginia" in self.name
-        # ):
-        #     self.sp["bias"] = 0.0
-        #     # self.
+
+        # =====================================
 
         if synth_method in [  # Methods that are not yet officially included
             "drift_pop",
@@ -320,10 +338,15 @@ class ParSelTrainOperator(ForecastOperator):
 
         self.aggregate_past_incidence()
         self.aggregate_fore_incidence()
-        self.fore_quantiles = self.make_quantiles_for("aggr")
-        # fop.daily_quantiles = fop.make_quantiles_for("gran") # DAILY (optional)
 
-        # Categorical rate change is calculated in FluSight script
+        # --- Make quantile for required aggregation levels
+        # If both, `aggr` is set as the main `fore_quantiles` level.
+        if self.op["use_aggr_level"] in ["gran", "both"]:
+            self.fore_quantiles = self.make_quantiles_for("gran")
+        if self.op["use_aggr_level"] in ["aggr", "both"]:
+            self.fore_quantiles = self.make_quantiles_for("aggr")
+
+        # OBS: Categorical rate change is calculated in FluSight script
 
         self.set_stage_next()
 
