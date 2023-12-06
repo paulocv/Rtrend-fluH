@@ -50,6 +50,10 @@ rt_mcmc/BKP_*
 !LICENSE
 !README.md
 
+# Input files
+!inputs/
+!inputs/flusight_params.yaml
+
 # Logos
 !*.svg
 !rt_flu_logo.png
