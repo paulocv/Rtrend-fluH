@@ -57,7 +57,7 @@ rt_estimation:
   # Data scaling
   scale_method: data_pwr  # const, data_pwr, pop_pwr?
   scale_power: 0.95   # Pwr method: scaled = (ref / avg) ** power. Values lower than 1 add uncertainty to lower incidence and remove from higher.
-  scale_ref_inc: 900 # 65  # Reference incidence for scaling ["data_pwr" method]
+  scale_ref_inc: 1400 # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
   scale_ref_pop: 12000  # Reference population for scaling ["pop_pwr" method]
   # scale_factor: 1.2  # ["const" method; overridden by other methods]
 
@@ -80,10 +80,10 @@ rt_synthesis:
   r_max: 6.0     # [UPDATE: rejects any estimate ensemble that reaches this threshold] Clamp up to these R values (for the average)
 
   # Drift synth-reconstruction parameters
-  drift_pop_coef: 20.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t). Higher = more drift.
+  drift_pop_coef: 6.0e+2  #20.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t). Higher = more drift.
 #  drift_coef: 1.0e-3  # Pure drift coefficient. Drift = coef * c(t). Overriden by other methods.
   rw_coef: 0.0
-  bias: 0.02
+  bias: 0.00  # 0.001
 
   # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
   k_start: 0.95    # Ramp method: starting coefficient
