@@ -176,24 +176,39 @@ class ParSelTrainOperator(ForecastOperator):
         """
 
         # EXCEPTIONS (PREPROCESSING TIME)
-        # # OVERESTIMATED DRIFT: 2023-11-18
-        if ("Puerto-Rico" in self.name
-            or "Alaska" in self.name
+
+        # Alaska is in its own world 2023-12-06
+        if ("Alaska" in self.name):
+            self.sp["synth_method"] = "rnd_normal"
+            self.logger.warning(f"Exception applied")
+
+        # Quick drop – strenghten filter 2023-12-09
+        if ("Colorado" in self.name):
+                self.sp["bias"] = 0.002
+                self.pp["denoise_cutoff"] = 0.03
+                self.logger.warning(f"Exception applied")
+
+        # States with too much drift
+        if ("Florida" in self.name
+            or "Arizona" in self.name
         ):
-            # self.sp["bias"] = 0.0
-            self.sp["drift_pop_coef"] = 10.E3
-            # self.
+            self.sp["drift_pop_coef"] *= 0.20
+            self.logger.warning(f"Exception applied: too much drift")
 
-        # Huge drop – strenghten filter 2023-11-25
-        if "Alaska" in self.name:
-            self.sp["bias"] = 0.05
-            self.pp["denoise_cutoff"] = 0.03
+        # States with too little drift
+        if ("Montana" in self.name
+            or "New-York" in self.name
+            or "New-Jersey" in self.name
+        ):
+            self.sp["drift_pop_coef"] *= 1.80
+            self.logger.warning(f"Exception applied: too little drift")
 
-        # California forecast too confident and has no drift 2023-11-25
-        if "California" in self.name:
-            self.sp["bias"] = 0.0
-            self.sp["drift_pop_coef"] *= 1.5
-            self.ep["scale_ref_inc"] /= 3.5
+        # # California forecast too confident and has no drift 2023-11-25
+        # if "California" in self.name:
+        #     self.sp["bias"] = 0.0
+        #     self.sp["drift_pop_coef"] *= 1.5
+        #     self.ep["scale_ref_inc"] /= 3.5
+        #     self.logger.warning(f"Exception applied")
 
         if True:  # Placeholder: for now, does not load from file
             ParSelPreprocessOperator.callback_preprocessing(self)
