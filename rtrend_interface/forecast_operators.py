@@ -178,15 +178,21 @@ class ParSelTrainOperator(ForecastOperator):
         # EXCEPTIONS (PREPROCESSING TIME)
 
         # Alaska is in its own world 2023-12-06
-        if ("Alaska" in self.name):
+        # Iowa may have recent reporting issues - 2023-12-13
+        # Massachussets DID HAVE reporting issues! 2023-12-13
+        if (
+            "Alaska" in self.name
+            or "Iowa" in self.name
+            or "Massachusetts" in self.name
+        ):
             self.sp["synth_method"] = "rnd_normal"
             self.logger.warning(f"Exception applied")
 
-        # Quick drop – strenghten filter 2023-12-09
-        if ("Colorado" in self.name):
-                self.sp["bias"] = 0.002
-                self.pp["denoise_cutoff"] = 0.03
-                self.logger.warning(f"Exception applied")
+        # # Quick drop – strenghten filter 2023-12-09
+        # if ("Colorado" in self.name):
+        #         self.sp["bias"] = 0.002
+        #         self.pp["denoise_cutoff"] = 0.03
+        #         self.logger.warning(f"Exception applied")
 
         # States with too much drift
         if ("Florida" in self.name
@@ -198,9 +204,17 @@ class ParSelTrainOperator(ForecastOperator):
         # States with too little drift
         if ("Montana" in self.name
             or "New-York" in self.name
-            or "New-Jersey" in self.name
+            # or "New-Jersey" in self.name
+            or "North-Carolina" in self.name
+            or "Delaware" in self.name
+            or "Idaho" in self.name
+            or "Arizona" in self.name
         ):
             self.sp["drift_pop_coef"] *= 1.80
+            self.logger.warning(f"Exception applied: too little drift")
+
+        if "New-Hampshire" in self.name:
+            self.sp["drift_pop_coef"] *= 1.30
             self.logger.warning(f"Exception applied: too little drift")
 
         # # California forecast too confident and has no drift 2023-11-25
