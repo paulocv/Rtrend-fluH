@@ -98,6 +98,8 @@ def make_filtered_fname(
 
 
 def make_file_friendly_name(name: str, space_rep="-", point_rep="_"):
+    """Create a string that can be used in file paths from a base string.
+    """
     return name.replace(" ", space_rep).replace(".", point_rep)
 
 
@@ -144,21 +146,32 @@ def make_date_state_index(general_params: dict, loc_names: list):
     return day_pres_seq, states, date_state_idx
 
 
-def prepare_dict_for_yaml_export(d: dict):
+def prepare_dict_for_yaml_export(d: dict, inplace=True):
     """Converts some data types within a dictionary into other objects
     that can be read in a file (e.g. strings).
     Operates recursively through contained dictionaries.
-    Changes are made inplace for all dictionaries.
+    If `inplace` is True (default), changes are made inplace for
+    all dictionaries (including inner ones).
     """
+    if not inplace:
+        d = d.copy()
+
     for key, val in d.items():
 
         # Recurse through inner dictionary
         if isinstance(val, dict):
-            prepare_dict_for_yaml_export(val)
+            d[key] = prepare_dict_for_yaml_export(val, inplace=inplace)
 
         # pathlib.Path into its string
         if isinstance(val, Path):
             d[key] = str(val.expanduser())
+
+        # Pandas timestamp to its isoformat
+        if isinstance(val, pd.Timestamp):
+            # d[key] = str(val)
+            d[key] = val.to_pydatetime()  # Reloadable and human-readable
+
+    return d
 
 
 # ----------------------------------------------------------------------
