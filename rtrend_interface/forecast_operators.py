@@ -183,7 +183,7 @@ class ParSelTrainOperator(ForecastOperator):
         if (
             "Alaska" in self.name
             or "Iowa" in self.name
-            or "Massachusetts" in self.name
+            # or "Massachusetts" in self.name
         ):
             self.sp["synth_method"] = "rnd_normal"
             self.logger.warning(f"Exception applied")
@@ -210,7 +210,7 @@ class ParSelTrainOperator(ForecastOperator):
             or "Idaho" in self.name
             or "Arizona" in self.name
         ):
-            self.sp["drift_pop_coef"] *= 1.80
+            self.sp["drift_pop_coef"] *= 1.50
             self.logger.warning(f"Exception applied: too little drift")
 
         if "New-Hampshire" in self.name:

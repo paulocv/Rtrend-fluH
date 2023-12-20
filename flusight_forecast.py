@@ -42,6 +42,7 @@ from rtrend_interface.parsel_utils import (
     load_truth_cdc_simple,
     make_file_friendly_name,
     make_state_index,
+    prepare_dict_for_yaml_export,
 )
 from rtrend_interface.truth_data_structs import FluDailyTruthData
 
@@ -97,7 +98,6 @@ def main():
 
     import_simulation_data(params, data)
     run_forecasts_once(params, data)
-    # calculate_rate_change_forecasts(params, data)
     calculate_for_usa(params, data)
     postprocess_all(params, data)
     export_all(params, data)
@@ -773,6 +773,21 @@ def postprocess_all(params: Params, data: Data):
     )
 
 
+def export_metadata(path, params: Params, data: Data):
+    """Creates and exports a yaml file with forecasting metadata."""
+    # Convert some data types to be yaml-exportable
+    out_dict = prepare_dict_for_yaml_export(params.__dict__, inplace=False)
+
+    # Add more details
+    out_dict["num_states"] = len(data.use_state_names)
+    out_dict["num_all_states"] = len(data.all_state_names)
+    out_dict["num_valid_forecasts"] = int(data.fop_sr_valid_mask.sum())
+
+    # Export
+    with open(path, "w") as fp:
+        fp.write(yaml.dump(out_dict))
+
+
 @GLOBAL_XTT.track()
 def export_all(params: Params, data: Data):
     """"""
@@ -795,6 +810,10 @@ def export_all(params: Params, data: Data):
     # ------------------------------------------------------------------
     params.output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Metadata
+    path = params.output_dir.joinpath("metadata.yaml")
+    export_metadata(path, params, data)
+
     # Quantile forecasts
     path = params.output_dir.joinpath("quantile_forecasts.csv")
     data.main_quantile_df.to_csv(path)
@@ -808,7 +827,7 @@ def export_all(params: Params, data: Data):
 
     # ----- Suggested files to export --------
     # TODO implement more
-    # - [ ] Metadata, summary, as you please
+    # - [x] Metadata, summary, as you please
     #     - now, ref_date, call_time, etc...
     # - [x] Quantiles
     # - [ ]  Categorical
