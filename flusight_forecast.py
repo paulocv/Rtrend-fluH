@@ -58,7 +58,7 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
 
     # OBS: default paths are defined in `parse_args()`
 
-    ncpus=5,
+    # ncpus=5,
 )
 
 DEFAULT_PARAMS_GENERAL = dict(  # Parameters from the `general` dict
@@ -261,6 +261,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--ncpus",
+        help="Number of independent concurrent processes to run.",
+        default=5, type=int,
+    )
+
+    parser.add_argument(
         "--now", type=pd.Timestamp,
         help="Timestamp to be considered as \"now\". Defaults to "
              "pandas.Timestamp.now().",
@@ -273,6 +279,8 @@ def parse_args():
              "R(t) estimation) should be exported to files.",
         default=True,
     )
+
+
 
     return parser.parse_args()  # When all arguments are defined here
     # return parser.parse_known_args()  # If there are extra arguments
@@ -782,6 +790,9 @@ def export_metadata(path, params: Params, data: Data):
     out_dict["num_states"] = len(data.use_state_names)
     out_dict["num_all_states"] = len(data.all_state_names)
     out_dict["num_valid_forecasts"] = int(data.fop_sr_valid_mask.sum())
+
+    out_dict["ref_date"] = data.dates.ref.date()
+    out_dict["due_date"] = data.dates.due.isoformat()
 
     # Export
     with open(path, "w") as fp:
