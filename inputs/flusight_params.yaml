@@ -50,7 +50,7 @@ preprocessing:
 # --- R(t) ESTIMATION (MCMC)
 rt_estimation:
 #  method: mcmc  # Only mcmc for now
-  engine: c     # c, numba
+  engine: numba     # c, numba
   seed: 10
   roi_len: 30  # In granular periods. Must be bigger than nperiods_past. Blank to use main_roi (in weeks).
 
@@ -62,7 +62,8 @@ rt_estimation:
   # scale_factor: 1.2  # ["const" method; overridden by other methods]
 
   # MCMC parameters
-  nsim: 20000
+  nsim: 12000
+  ntrans: 2000  # Number of transients (from the total nsim, must be smaller).
   sigma: 0.05
 
   # Path of files for C engine
