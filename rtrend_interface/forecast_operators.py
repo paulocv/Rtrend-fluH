@@ -194,11 +194,12 @@ class ParSelTrainOperator(ForecastOperator):
         #         self.pp["denoise_cutoff"] = 0.03
         #         self.logger.warning(f"Exception applied")
 
-        # States with too much drift
-        if ("Florida" in self.name
-            or "Arizona" in self.name
+        # Arizona is predicting huge increase and sharp turn
+        if (
+            "Arizona" in self.name
         ):
-            self.sp["drift_pop_coef"] *= 0.20
+            # self.sp["drift_pop_coef"] *= 0.80
+            self.ep["scale_ref_inc"] = 50
             self.logger.warning(f"Exception applied: too much drift")
 
         # States with too little drift
@@ -209,6 +210,7 @@ class ParSelTrainOperator(ForecastOperator):
             or "Delaware" in self.name
             or "Idaho" in self.name
             or "Arizona" in self.name
+            or "Utah" in self.name
         ):
             self.sp["drift_pop_coef"] *= 1.50
             self.logger.warning(f"Exception applied: too little drift")
