@@ -1,8 +1,10 @@
 """Utility tools specific to the FluSight forecast."""
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from rtrend_interface.forecast_operators import FluSightForecastOperator
 from rtrend_interface.parsel_utils import get_next_weekly_timestamp
@@ -98,6 +100,9 @@ class FluSightGeneralOutputs:
         self.rt_fore_df = self.import_rt_stats_file(
             self.forecast_dir.joinpath("rt_fore.csv")
         )
+        self.meta_dict = self.import_metadata(
+            self.forecast_dir.joinpath("metadata.yaml")
+        )
 
     @staticmethod
     def import_quantile_forecasts(fname: Path):
@@ -110,6 +115,78 @@ class FluSightGeneralOutputs:
     @staticmethod
     def import_rt_stats_file(fname: Path):
         return pd.read_csv(fname, index_col=[0, 1])
+
+    @staticmethod
+    def import_metadata(fname: Path):
+        d = None
+        try:
+            with open(fname, "r") as fp:
+                d = yaml.load(fp, yaml.Loader)
+        except FileNotFoundError:
+            msg = ("Hey, forecast outputs has no metadata file: "
+                   f"{fname.name}.\nself.meta_dict was set to None.")
+            # warnings.warn(msg)  # Why not working?
+            print(msg)
+        finally:
+            return d
+
+
+class FluSight2023Fore:
+    """Data bunch to hold raw and preprocessed data from a FluSight
+    forecast hubverse file for the 2023-2024 season
+    (single reference date).
+    """
+    raw_df: pd.DataFrame
+    quantiles_df: pd.DataFrame  # df.loc[(loc_id, date), q_val] = q_forecast
+    ratechange_df: pd.DataFrame  # df.loc[(loc_id, date), category] = probab
+
+    ref_date: pd.Timestamp
+
+    def __init__(self, fname):
+        """Load a FluSight file and preprocess the data."""
+        # --- Read file. Keep the default index.
+        self.raw_df = pd.read_csv(fname, parse_dates=[0, 3])
+
+        # --- Extract reference date and check if it's unique
+        ref_dates = self.raw_df["reference_date"].unique()
+        if ref_dates.shape[0] != 1:
+            raise ValueError(
+                "Hey, the forecast file can only have one reference date,"
+                f" but {ref_dates.shape[0] != 1} unique values were found."
+            )
+        self.ref_date = pd.Timestamp(ref_dates[0])
+
+        # Extract the forecast quantiles
+        # ------------------------------
+        # Select data
+        df: pd.DataFrame = self.raw_df.loc[
+            self.raw_df["target"] == "wk inc flu hosp"]
+
+        # Remove redundant labels and make an index with the remaining ones
+        df = df.drop(["reference_date", "output_type", "target", "horizon"], axis=1)
+        df = df.set_index(["location", "target_end_date", "output_type_id"])
+
+        # Make a table of quantile forecasts
+        df = df["value"].unstack(level="output_type_id")
+        df.columns.name = "quantile"
+
+        self.quantiles_df = df
+
+        # Extract the categorical rate change forecast
+        # --------------------------------------------
+        df: pd.DataFrame = self.raw_df.loc[
+            self.raw_df["target"] == "wk flu hosp rate change"]
+
+        # Remove redundant labels
+        df = df.drop(["reference_date", "output_type", "target", "horizon"], axis=1)
+        df = df.set_index(["location", "target_end_date", "output_type_id"])
+
+        # Make a table of quantile forecasts
+        df = df["value"].unstack(level="output_type_id")
+        df = df.reindex(rate_change_i_to_name.values(), axis=1)
+        df.columns.name = "category"
+
+        self.ratechange_df = df
 
 
 def calc_horizon_from_dates(date_seq, ref_date):
