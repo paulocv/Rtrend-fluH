@@ -153,7 +153,9 @@ class ParSelTrainOperator(ForecastOperator):
             nperiods_main_roi: int,  # Size of the main region-of-interest in aggr periods.
             population: int,
             # count_rates: pd.Series,
-            *args, **kwargs):
+            *args,
+            state_name="#nostate",
+            **kwargs):
         super(ParSelTrainOperator, self).__init__(*args, **kwargs)
 
         # Calculate and set the main ROI
@@ -168,6 +170,7 @@ class ParSelTrainOperator(ForecastOperator):
 
         # Misc
         self.population = population  # Effective population size.
+        self.state_name = state_name
 
     def callback_preprocessing(self):
         """Either runs the preprocessing defined in the
@@ -282,7 +285,7 @@ class ParSelTrainOperator(ForecastOperator):
         self.synthesize_tg()
         # self.synthesize_rt()
 
-        # ---- THIS implementation must be moved to another place
+        # ---- TODO THIS implementation must be moved to another place
         from rtrend_forecast.rt_synthesis import drift_rw_synth_reconstruct
         synth_method = self.sp["synth_method"]
 
@@ -306,7 +309,6 @@ class ParSelTrainOperator(ForecastOperator):
             synth_method = self.sp["synth_method"] = "rnd_normal"
             self.logger.info(
                 f"Changed method to `rnd_normal`.")
-
 
         # =====================================
 
