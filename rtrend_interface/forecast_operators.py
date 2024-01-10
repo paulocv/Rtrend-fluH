@@ -311,53 +311,11 @@ class ParSelTrainOperator(ForecastOperator):
                 f"Changed method to `rnd_normal`.")
 
         # =====================================
+        # Set population size as a parameter, for compatibility.
+        self.sp["population"] = self.population
 
-        if synth_method in [  # Methods that are not yet officially included
-            "drift_pop",
-            "drift_const",
-        ]:
-            # Calculate the drift coefficient from population
-            if synth_method == "drift_pop":
-                self.sp["drift_coef"] = (
-                        float(self.sp["drift_pop_coef"])
-                        / self.population)
-
-            # Run the drift synth-reconstruction
-            try:
-                rt_fore_2d, ct_fore_2d = drift_rw_synth_reconstruct(
-                    self.nperiods_fore,
-                    self.rt_past,
-                    self.inc.past_gran_sr.to_numpy(),
-                    self.tg_past.get_pmf_array(),
-                    self.tg_fore.get_pmf_array(),
-                    min(self.tg_past.tmax, self.tg_fore.tmax),
-                    self.sp["nperiods_past"],
-                    float(self.sp["drift_coef"]),
-                    float(self.sp.get("rw_coef", 0)),
-                    float(self.sp.get("bias", 0)),
-                    self.sp["q_low"],
-                    self.sp["q_hig"],
-                    logger=self.logger,
-                )
-            except ValueError as e:
-                self.logger.error(f"{e}")
-                self.set_stage_error()
-                return
-            except Exception as e:
-                raise Exception(f"{self.name}: {e}")
-
-            # Store results (R(t) and c(t) forecast)
-            self.rt_fore = RtData(rt_fore_2d.T)
-            self.inc.fore_gran_df = pd.DataFrame(
-                ct_fore_2d.T, columns=self.time.fore_gran_idx
-            )
-
-            # Set columns as dates
-            self.rt_fore.df.columns = self.time.fore_gran_idx
-
-        else:  # Other methods: call the regular synth/reconstruction
-            self.synthesize_rt(df_columns_as_dates=True)
-            self.reconstruct_incidence()
+        # Call the combined synthesis/reconstruction method.
+        self.synthesize_and_reconstruct()
 
         # --- Save the future R(t) estimation stats
         self.extra["rt_fore_median"] = self.rt_fore.get_median_pd()
