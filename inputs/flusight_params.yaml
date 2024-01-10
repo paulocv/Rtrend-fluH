@@ -40,7 +40,7 @@ preprocessing:
   denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
 
   # For lowpass/polyfit method
-  denoise_cutoff: 0.075
+  denoise_cutoff: 0.150
   denoise_order: 2
   denoise_seed: 10
   
@@ -56,8 +56,9 @@ rt_estimation:
 
   # Data scaling
   scale_method: data_pwr  # const, data_pwr, pop_pwr?
+  scale_roi_len: 60   # ["data_pwr" method] – How many granular periods of past incidence to consider for the scaling factor.
   scale_power: 0.95   # Pwr method: scaled = (ref / avg) ** power. Values lower than 1 add uncertainty to lower incidence and remove from higher.
-  scale_ref_inc: 300 # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
+  scale_ref_inc: 100  # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
   scale_ref_pop: 12000  # Reference population for scaling ["pop_pwr" method]
   # scale_factor: 1.2  # ["const" method; overridden by other methods]
 
@@ -71,14 +72,14 @@ rt_estimation:
 
 # --- R(t) SYNTHESIS
 rt_synthesis: 
-  synth_method: drift_pop  # static_ramp, dynamic_ramp, rnd_normal, default, drift_pop, drift_const
-  tg_synth_method: same  # ??
+  synth_method: drift_pop  # drift_pop  # static_ramp, dynamic_ramp, rnd_normal, default, drift_pop, drift_const
+  tg_synth_method: same  # Generation time assumed as constant
   seed: 10
 
   # Common parameters
   q_low: 0.01    # Sorted ensemble: low quantile
   q_hig: 0.99    # Sorted ensemble: high quantile
-  nperiods_past: 14  # Number of days (backwards) to consider in synthesis. Shorter than mcmc roi_len
+  nperiods_past: 2  # Number of days (backwards) to consider in synthesis. Shorter than mcmc roi_len
   r_max: 6.0     # [UPDATE: rejects any estimate ensemble that reaches this threshold] Clamp up to these R values (for the average)
 
   # Drift synth-reconstruction parameters

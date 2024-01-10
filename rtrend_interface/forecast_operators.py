@@ -180,11 +180,11 @@ class ParSelTrainOperator(ForecastOperator):
 
         # EXCEPTIONS (PREPROCESSING TIME)
 
-        # Alaska is in its own world 2023-12-06
         # Iowa may have recent reporting issues - 2023-12-13
         # Massachussets DID HAVE reporting issues! 2023-12-13
+        # Puerto
         if (
-            "Alaska" in self.name
+            self.state_name in ["Puerto Rico"]
             or "Iowa" in self.name
             # or "Massachusetts" in self.name
         ):
@@ -282,12 +282,6 @@ class ParSelTrainOperator(ForecastOperator):
         self.set_stage_next()
 
     def callback_rt_synthesis(self):
-        self.synthesize_tg()
-        # self.synthesize_rt()
-
-        # ---- TODO THIS implementation must be moved to another place
-        from rtrend_forecast.rt_synthesis import drift_rw_synth_reconstruct
-        synth_method = self.sp["synth_method"]
 
         # EXCEPTIONS
         # --------------------------------------------
@@ -315,6 +309,7 @@ class ParSelTrainOperator(ForecastOperator):
         self.sp["population"] = self.population
 
         # Call the combined synthesis/reconstruction method.
+        self.synthesize_tg()
         self.synthesize_and_reconstruct()
 
         # --- Save the future R(t) estimation stats
