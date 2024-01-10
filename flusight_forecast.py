@@ -5,6 +5,7 @@ Runs the Rtrend forecasting method for the FluSight CDC initiative.
 import argparse
 import datetime
 import os
+import shutil
 import sys
 from collections import OrderedDict
 from pathlib import Path
@@ -278,8 +279,6 @@ def parse_args():
              "R(t) estimation) should be exported to files.",
         default=True,
     )
-
-
 
     return parser.parse_args()  # When all arguments are defined here
     # return parser.parse_known_args()  # If there are extra arguments
@@ -820,6 +819,12 @@ def export_all(params: Params, data: Data):
     # Other forecast report files
     # ------------------------------------------------------------------
     params.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Parameters file – Just copy as it is
+    shutil.copyfile(
+        params.input_file,
+        params.output_dir.joinpath("parameters_bkp.yaml")
+    )
 
     # Metadata
     path = params.output_dir.joinpath("metadata.yaml")
