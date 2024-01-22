@@ -13,6 +13,9 @@ Team members:
 
 ## Setup and usage 
 
+| Important: for the 2023/2024 season, an entirely refurbished version of the forecast code was developed. The guides shown below refer to the previous season and are outdated. Documentation for the new version is being written. |
+| :-------- |
+
 A complete guide is available in the following docs: 
 
 - [Setup Guide](./docs/setup_guide.md) – Follow this once to install.
