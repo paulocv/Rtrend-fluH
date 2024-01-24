@@ -91,6 +91,9 @@ class FluSightGeneralOutputs:
         self.forecast_dir = Path(forecast_dir)
 
         # ---
+        self.meta_dict = self.import_metadata(
+            self.forecast_dir.joinpath("metadata.yaml")
+        )
         self.q_df = self.import_quantile_forecasts(
             self.forecast_dir.joinpath("quantile_forecasts.csv")
         )
@@ -99,9 +102,6 @@ class FluSightGeneralOutputs:
         )
         self.rt_fore_df = self.import_rt_stats_file(
             self.forecast_dir.joinpath("rt_fore.csv")
-        )
-        self.meta_dict = self.import_metadata(
-            self.forecast_dir.joinpath("metadata.yaml")
         )
 
     @staticmethod
