@@ -58,7 +58,7 @@ rt_estimation:
   scale_method: data_pwr  # const, data_pwr, pop_pwr?
   scale_roi_len: 60   # ["data_pwr" method] – How many granular periods of past incidence to consider for the scaling factor.
   scale_power: 0.95   # Pwr method: scaled = (ref / avg) ** power. Values lower than 1 add uncertainty to lower incidence and remove from higher.
-  scale_ref_inc: 75  # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
+  scale_ref_inc: 200  # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
   scale_ref_pop: 12000  # Reference population for scaling ["pop_pwr" method]
   # scale_factor: 1.2  # ["const" method; overridden by other methods]
 
@@ -85,7 +85,7 @@ rt_synthesis:
 #  drift_coef: 1.0e-3  # Pure drift coefficient. Drift = coef * c(t). Overriden by other methods.
   rw_coef: 0.0
   bias: 0.001  # 0.001  # Bias added to the exponent at each R(t) drift step
-  initial_bias: -0.20  # Bias added at the first R(t) drift step
+  initial_bias: -0.08  # Bias added at the first R(t) drift step
 
   # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
   k_start: 0.95    # Ramp method: starting coefficient
