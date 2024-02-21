@@ -181,21 +181,14 @@ class ParSelTrainOperator(ForecastOperator):
         # EXCEPTIONS (PREPROCESSING TIME)
 
         # Iowa may have recent reporting issues - 2023-12-13
-        # Massachussets DID HAVE reporting issues! 2023-12-13
         # Puerto
         if (
-            self.state_name in ["Puerto Rico"]
-            or "Iowa" in self.name
-            # or "Massachusetts" in self.name
-        ):
+            self.state_name in [
+                "Puerto Rico",
+                "Hawaii",
+        ]):
             self.sp["synth_method"] = "rnd_normal"
             self.logger.warning(f"Exception applied")
-
-        # # Quick drop – strenghten filter 2023-12-09
-        # if ("Colorado" in self.name):
-        #         self.sp["bias"] = 0.002
-        #         self.pp["denoise_cutoff"] = 0.03
-        #         self.logger.warning(f"Exception applied")
 
         # Arizona is predicting huge increase and sharp turn
         if (
@@ -204,6 +197,10 @@ class ParSelTrainOperator(ForecastOperator):
             # self.sp["drift_pop_coef"] *= 0.80
             self.ep["scale_ref_inc"] = 50
             self.logger.warning(f"Exception applied: too much drift")
+
+        # 2024-02-24 reduce trend for WV
+        if self.state_name == "West Virginia":
+            self.sp["initial_bias"] = -0.10
 
         # States with too little drift
         if ("Montana" in self.name
