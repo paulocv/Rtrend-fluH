@@ -181,13 +181,15 @@ class ParSelTrainOperator(ForecastOperator):
         # EXCEPTIONS (PREPROCESSING TIME)
 
         # Iowa may have recent reporting issues - 2023-12-13
-        # Puerto
+        # 2024-03-13 Puerto, Alaska
         if (
             self.state_name in [
                 "Puerto Rico",
                 "Hawaii",
+                "Alaska",
         ]):
             self.sp["synth_method"] = "rnd_normal"
+            self.sp["sigma"] = 0.006
             self.logger.warning(f"Exception applied")
 
         # Arizona is predicting huge increase and sharp turn
@@ -198,9 +200,55 @@ class ParSelTrainOperator(ForecastOperator):
             self.ep["scale_ref_inc"] = 50
             self.logger.warning(f"Exception applied: too much drift")
 
+        # Connecticut: weekly oscillating pattern. Strengthen the filter.
+        if self.state_name in [
+            "Connecticut",
+            # "Alaska"
+        ]:
+            self.pp["denoise_cutoff"] = 0.07
+
         # 2024-02-24 reduce trend for WV
-        if self.state_name == "West Virginia":
-            self.sp["initial_bias"] = -0.10
+        # 2024-03-13 District of Columbia
+        if self.state_name in [
+            # "West Virginia",
+            "District of Columbia",
+        ]:
+            self.sp["initial_bias"] = -0.15
+
+        # 2024-03-13 New Mexico
+        # 2024-03-20 Change to initial bias
+        if self.state_name in [
+            # "West Virginia",
+            "New Mexico",
+        ]:
+            # self.sp["bias"] = -0.001
+            self.sp["initial_bias"] = -0.01
+
+        # 2024-03-20 - States with some overconfidence-overestimating
+        if self.state_name in [
+            # "West Virginia",
+            "Michigan"
+            "Ohio",
+            "Virginia",
+            "West Virginia",
+            "Wisconsin",
+        ]:
+            self.sp["initial_bias"] = -0.2
+            self.ep["scale_ref_inc"] *= 0.1
+
+        # 2024-03-20 – Utah - Reduce Uncertainty
+        if self.state_name in [
+            "Utah",
+        ]:
+            self.ep["scale_ref_inc"] = 5000
+
+        # 2024-03-13 DC - Reduce uncertainty
+        if self.state_name in [
+            "District of Columbia",
+        ]:
+            self.ep["scale_ref_inc"] = 1000
+            # self.sp["q_low"] = 0.40
+            # self.sp["q_hig"] = 0.60
 
         # States with too little drift
         if ("Montana" in self.name
