@@ -190,6 +190,9 @@ class ParSelTrainOperator(ForecastOperator):
         ]):
             self.sp["synth_method"] = "rnd_normal"
             self.sp["sigma"] = 0.006
+            # Reduce sigma for Alaska
+            if self.state_name == "Alaska":
+                self.sp["sigma"] = 0.001
             self.logger.warning(f"Exception applied")
 
         # Arizona is predicting huge increase and sharp turn
@@ -266,6 +269,10 @@ class ParSelTrainOperator(ForecastOperator):
         if "New-Hampshire" in self.name:
             self.sp["drift_pop_coef"] *= 1.30
             self.logger.warning(f"Exception applied: too little drift")
+
+        # 2024-03-27 – Oregon has too much uncertainty
+        if self.state_name in ["Oregon"]:
+            self.pp["denoise_cutoff"] = 0.07
 
         # # California forecast too confident and has no drift 2023-11-25
         # if "California" in self.name:
