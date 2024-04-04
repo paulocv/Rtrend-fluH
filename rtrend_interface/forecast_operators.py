@@ -196,12 +196,12 @@ class ParSelTrainOperator(ForecastOperator):
             self.logger.warning(f"Exception applied")
 
         # Arizona is predicting huge increase and sharp turn
+        # 2024-04-03 – Not too bad now
         if (
             "Arizona" in self.name
         ):
-            # self.sp["drift_pop_coef"] *= 0.80
-            self.ep["scale_ref_inc"] = 50
-            self.logger.warning(f"Exception applied: too much drift")
+            # self.ep["scale_ref_inc"] = 50
+            self.ep["scale_ref_inc"] = 180
 
         # Connecticut: weekly oscillating pattern. Strengthen the filter.
         if self.state_name in [
@@ -253,18 +253,22 @@ class ParSelTrainOperator(ForecastOperator):
             # self.sp["q_low"] = 0.40
             # self.sp["q_hig"] = 0.60
 
-        # States with too little drift
-        if ("Montana" in self.name
-            or "New-York" in self.name
-            # or "New-Jersey" in self.name
-            or "North-Carolina" in self.name
-            or "Delaware" in self.name
-            or "Idaho" in self.name
-            or "Arizona" in self.name
-            or "Utah" in self.name
-        ):
-            self.sp["drift_pop_coef"] *= 1.50
-            self.logger.warning(f"Exception applied: too little drift")
+        # 2024-04-03 – Avoid late season rebound
+        if self.state_name in ["Louisiana"]:
+            self.ep["scale_ref_inc"] = 800
+
+        # # States with too little drift
+        # if ("Montana" in self.name
+        #     or "New-York" in self.name
+        #     # or "New-Jersey" in self.name
+        #     # or "North-Carolina" in self.name
+        #     or "Delaware" in self.name
+        #     or "Idaho" in self.name
+        #     or "Arizona" in self.name
+        #     or "Utah" in self.name
+        # ):
+        #     self.sp["drift_pop_coef"] *= 1.50
+        #     self.logger.warning(f"Exception applied: too little drift")
 
         if "New-Hampshire" in self.name:
             self.sp["drift_pop_coef"] *= 1.30
