@@ -187,6 +187,8 @@ class ParSelTrainOperator(ForecastOperator):
                 "Puerto Rico",
                 "Hawaii",
                 "Alaska",
+                "Montana",
+                "Virginia",
         ]):
             self.sp["synth_method"] = "rnd_normal"
             self.sp["sigma"] = 0.006
