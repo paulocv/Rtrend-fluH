@@ -180,7 +180,6 @@ class ParSelTrainOperator(ForecastOperator):
 
         # EXCEPTIONS (PREPROCESSING TIME)
 
-        # Iowa may have recent reporting issues - 2023-12-13
         # 2024-03-13 Puerto, Alaska
         if (
             self.state_name in [
@@ -196,6 +195,14 @@ class ParSelTrainOperator(ForecastOperator):
             if self.state_name == "Alaska":
                 self.sp["sigma"] = 0.001
             self.logger.warning(f"Exception applied")
+
+
+        # REGULAR RANDOM NORMAL
+        if self.state_name in [
+            "Alabama",
+            "Idaho",
+        ]:
+            self.sp["synth_method"] = "rnd_normal"
 
         # Arizona is predicting huge increase and sharp turn
         # 2024-04-03 – Not too bad now
@@ -236,10 +243,22 @@ class ParSelTrainOperator(ForecastOperator):
             "Ohio",
             "Virginia",
             "West Virginia",
-            "Wisconsin",
+            # "Wisconsin",
         ]:
             self.sp["initial_bias"] = -0.2
             self.ep["scale_ref_inc"] *= 0.1
+
+        # 2024-04-17 Too narrow
+        if self.state_name in [
+            "North Carolina",
+        ]:
+            self.ep["scale_ref_inc"] *= 0.35
+
+        # 2024-04-17 Too wide
+        if self.state_name in [
+            "Vermont",
+        ]:
+            self.ep["scale_ref_inc"] *= 100  # ?!?!?!?
 
         # 2024-03-20 – Utah - Reduce Uncertainty
         if self.state_name in [
@@ -259,19 +278,6 @@ class ParSelTrainOperator(ForecastOperator):
         if self.state_name in ["Louisiana"]:
             self.ep["scale_ref_inc"] = 800
 
-        # # States with too little drift
-        # if ("Montana" in self.name
-        #     or "New-York" in self.name
-        #     # or "New-Jersey" in self.name
-        #     # or "North-Carolina" in self.name
-        #     or "Delaware" in self.name
-        #     or "Idaho" in self.name
-        #     or "Arizona" in self.name
-        #     or "Utah" in self.name
-        # ):
-        #     self.sp["drift_pop_coef"] *= 1.50
-        #     self.logger.warning(f"Exception applied: too little drift")
-
         if "New-Hampshire" in self.name:
             self.sp["drift_pop_coef"] *= 1.30
             self.logger.warning(f"Exception applied: too little drift")
@@ -279,13 +285,6 @@ class ParSelTrainOperator(ForecastOperator):
         # 2024-03-27 – Oregon has too much uncertainty
         if self.state_name in ["Oregon"]:
             self.pp["denoise_cutoff"] = 0.07
-
-        # # California forecast too confident and has no drift 2023-11-25
-        # if "California" in self.name:
-        #     self.sp["bias"] = 0.0
-        #     self.sp["drift_pop_coef"] *= 1.5
-        #     self.ep["scale_ref_inc"] /= 3.5
-        #     self.logger.warning(f"Exception applied")
 
         if True:  # Placeholder: for now, does not load from file
             ParSelPreprocessOperator.callback_preprocessing(self)
