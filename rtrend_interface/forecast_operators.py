@@ -196,13 +196,15 @@ class ParSelTrainOperator(ForecastOperator):
                 self.sp["sigma"] = 0.001
             self.logger.warning(f"Exception applied")
 
-
         # REGULAR RANDOM NORMAL
         if self.state_name in [
             "Alabama",
             "Idaho",
+            "West Virginia",
+            "North Carolina",
         ]:
             self.sp["synth_method"] = "rnd_normal"
+
 
         # Arizona is predicting huge increase and sharp turn
         # 2024-04-03 – Not too bad now
@@ -236,23 +238,30 @@ class ParSelTrainOperator(ForecastOperator):
             # self.sp["bias"] = -0.001
             self.sp["initial_bias"] = -0.01
 
-        # 2024-03-20 - States with some overconfidence-overestimating
-        if self.state_name in [
-            # "West Virginia",
-            "Michigan"
-            "Ohio",
-            "Virginia",
-            "West Virginia",
-            # "Wisconsin",
-        ]:
-            self.sp["initial_bias"] = -0.2
-            self.ep["scale_ref_inc"] *= 0.1
+        # # 2024-03-20 - States with some overconfidence-overestimating
+        # if self.state_name in [
+        #     # "West Virginia",
+        #     "Michigan"
+        #     "Ohio",
+        #     "Virginia",
+        #     "West Virginia",
+        #     # "Wisconsin",
+        # ]:
+        #     self.sp["initial_bias"] = -0.2
+        #     self.ep["scale_ref_inc"] *= 0.1
 
+        # Too confident 2024-04-24
+        # - Georgia, Colorado, Michigan, Mississippi, New York
         # 2024-04-17 Too narrow
         if self.state_name in [
-            "North Carolina",
+            "Colorado",
+            "Georgia",
+            "Michigan",
+            "Mississippi",
+            "New York",
+            # "North Carolina",
         ]:
-            self.ep["scale_ref_inc"] *= 0.35
+            self.ep["scale_ref_inc"] *= 0.20
 
         # 2024-04-17 Too wide
         if self.state_name in [
