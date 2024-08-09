@@ -44,6 +44,8 @@ rt_mcmc/BKP_*
 # Official forecast outputs
 !forecast_out/
 !forecast_out/*-CEPH-Rtrend_fluH.csv
+!forecast_out/2023-2024_season
+!forecast_out/2023-2024_season/*
 
 # Important stuff and etc
 !.gitignore
