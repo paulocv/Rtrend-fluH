@@ -10,16 +10,19 @@ also performs preprocessing within each forecasting loop.
 import argparse
 import datetime
 import os
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import yaml
 
+from rtrend_forecast.postprocessing import aggregate_in_periods
 from rtrend_forecast.reporting import (
     ExecTimeTracker,
     get_rtrend_logger,
     get_main_exectime_tracker,
+    SUCCESS,
 )
 from rtrend_forecast.structs import RtData, get_tg_object
 from rtrend_forecast.preprocessing import apply_lowpass_filter_pdseries
@@ -41,7 +44,7 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
     export=True,
 
     # Parallel (DON'T USE BOTH - Subprocesses can't have children)
-    ncpus_dates=4,
+    ncpus_dates=1,
     ncpus_states=1,
 )
 
@@ -75,8 +78,8 @@ def main():
 
     import_simulation_data(params, data)
 
-    # run_training(params, data)  # THIS WILL RUN THE SEASON MULTIPLE TIMES
-    run_forecasts_once(params, data)  # RUNS once FOR ONE "SEASON", ALL LOCATIONS
+    run_training(params, data)  # THIS WILL RUN THE SEASON MULTIPLE TIMES
+    # run_forecasts_once(params, data)  # RUNS once FOR ONE "SEASON", ALL LOCATIONS
 
     # Manually reporting exec time
     print("-------------------\nEXECUTION TIMES")
@@ -135,8 +138,19 @@ class Data:
     use_state_names: None  # Names of locations that shall be used.
     date_state_idx: pd.MultiIndex  # Combined index for dates and states
     truth_df_sr: pd.Series  # sr.loc[day_pres] = truth_df
+    golden_truth_daily_sr: pd.Series  # sr.loc[day_pres] = incidence. Most up-to-date truth.
+    golden_truth_weekly_sr: pd.Series  # sr.loc[day_pres] = incidence. Most up-to-date truth.
     # summary_metrics_df: pd.DataFrame  # Overall summary metrics
 
+    fop_sr: pd.Series  # Series of forecast operators, keyed by state
+    fop_sr_valid_mask: pd.Series
+
+    # Scoring and exporting
+    weekly_horizon_array: np.ndarray  # Requested horizons as int array (in weeks)
+    daily_horizon_array: np.ndarray  # Daily horizons as int array (in days)
+    weekly_horizon_deltas: pd.TimedeltaIndex  # Horizons as time deltas
+    daily_horizon_deltas: pd.TimedeltaIndex  # Daily horizons as time
+    q_alphas: np.ndarray
 
 #
 
@@ -245,12 +259,17 @@ def import_simulation_data(params: Params, data: Data):
     # ------------------------------------
     # IMPORT ALL REQUIRED TRUTH DATA FILES
     # ------------------------------------
+    # Incidence data *as of* each forecast date
     data.truth_df_sr = pd.Series(
         [load_truth_for_day_pres(params, day_pres)
          for day_pres in data.day_pres_seq],
         index=data.day_pres_seq
     )
 
+    # Golden truth data, containing data for all forecasts
+    data.golden_truth_daily_sr, data.golden_truth_weekly_sr = (
+        load_and_aggregate_golden_truth(params)
+    )
 
 #
 
@@ -293,10 +312,44 @@ def load_truth_for_day_pres(params: Params, day_pres):
     return truth_df
 
 
+def load_and_aggregate_golden_truth(params: Params):
+    # Load the (expectedly daily) truth file
+    daily_sr = load_truth_cdc_simple(params.general["golden_data_path"])["value"]
+    _LOGGER.debug(
+        f"Golden truth file {params.general['golden_data_path']} loaded.")
+
+    # Aggregate into weekly data for each location
+    vals = list()
+    keys = daily_sr.index.get_level_values("location").unique()
+    for loc_id in keys:
+        # Selects data from that location and aggregates
+        vals.append(aggregate_in_periods(
+            daily_sr.xs(loc_id, level="location"),
+            pd.Timedelta("1w"),
+            params.postprocessing["aggr_ref_tlabel"],
+            full_only=True,
+        ))
+
+    weekly_sr = pd.concat(vals, keys=keys).reorder_levels([1, 0])
+
+    return daily_sr, weekly_sr
+
+
+# ---
+
+
+# ---
+
+
 # -------------------------------------------------------------------
 # MAIN TRAINING ROUTINES
 # -------------------------------------------------------------------
 
+
+# ----
+
+
+# ---
 
 #
 
@@ -364,38 +417,56 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
 
             # Run the forecast operations
             # --------------------------
-            fop.run()
-
-            # TEST STUFF HERE
-            print(f"Watch {fop.name}\n"
-                  # f"{fop.inc.fore_aggr_df}\n"
-                  f"{fop.fore_quantiles}\n"
-                  )
-
-            # ----
-            fop.dump_heavy_stuff()
+            try:
+                fop.run()
+            
+            except Exception:
+                fop.logger.critical("Created an unhandled exception.")
+                raise
+            
+            finally:
+                fop.dump_heavy_stuff()
 
             return fop
 
-        # --------------------------------- End of state_task ---
+            # --------------------------------- End of state_task ---
 
-        # --- Run for states
+        # Run for states
+        # ----------------------------
         return map_parallel_or_sequential(
             state_task, enumerate(use_state_names), params.ncpus_states
         )
 
-    # --- Run for dates
+        # TODO: BUILD USA HERE?!????
+
+        # --------------------------------- End of date_task ---
+
+    # Run for dates
+    # ----------------------------
     date_state_fop_list = map_parallel_or_sequential(
         date_task,
         enumerate(zip(data.day_pres_seq, data.truth_df_sr)),
         params.ncpus_dates
     )
 
+    # Post-forecast collection
+    # ---------------------------------------------
+    # --- Build one series of fop objects (with 2-level multiindex)
+    data.fop_sr = (
+        pd.Series(sum(date_state_fop_list, []),
+                  index=data.date_state_idx))
 
+    # --- Store and check valid outputs
+    data.fop_sr_valid_mask = data.fop_sr.map(
+        lambda fop: fop.success
+    )
+
+    #
     # # todo test outcomes of one forecast ---------------------------
+    # oanfoainf o ------------------ APAGAR LATER ===============
     # fop_df = pd.DataFrame(
     #     date_state_fop_list,
-    #     index=day_pres_seq,
+    #     index=data.day_pres_seq,
     #     columns=use_state_names,
     # )
     #
@@ -406,9 +477,10 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     # print("----- TEST ONE FORECAST -----")
     # print(fop.name)
     #
-    # latest_truth_df = load_truth_for_day_pres(params, day_pres_seq[-1])
+    # latest_truth_df = load_truth_for_day_pres(params, data.day_pres_seq[-1])
     # latest_incid_sr = (
     #     latest_truth_df.xs(state_name_to_id[probe_state], level="location")["value"])
+    # fop.daily_quantiles = fop.make_quantiles_for("gran") # DAILY (optional)
     #
     # from matplotlib import pyplot as plt
     # from rtrend_tools.visualization import plot_precalc_quantiles_as_layers
@@ -440,56 +512,213 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     # plt.show()
 
 
-# ----------------
-# FUTURE FUNCTIONS Z– These will be moved to the Rtrend package
-import numba as nb
+@GLOBAL_XTT.track()
+def score_forecasts_once(params: Params, data: Data):
+    """
+    Scores prerun forecasts with given parameters, for all locations
+    and selected dates.
+    """
+    # -----------------------------------
+    # Preamble operations
+    # -----------------------------------
+    _LOGGER.debug("Begin scoring forecasts.")
+    # Filter invalid
+    fop_sr = data.fop_sr.loc[data.fop_sr_valid_mask]
+
+    # Unpack values
+    q_alphas = data.q_alphas
+    golden_truth_daily_sr = data.golden_truth_daily_sr
+    state_name_to_id = data.state_name_to_id
+
+    daily_horizon_array = data.daily_horizon_array
+    weekly_horizon_array = data.weekly_horizon_array
+    daily_horizon_deltas = data.daily_horizon_deltas
+    weekly_horizon_deltas = data.weekly_horizon_deltas
+
+    # -----------------------------------
+    # Define the scoring routine
+    # -----------------------------------
+
+    def score_one_forecast(
+            fop: ParSelTrainOperator,
+            day_pres: pd.Timestamp,
+            state_name: str,
+    ):
+        """"""
+        # Cross-section the golden truth for given state
+        truth_daily = golden_truth_daily_sr.xs(
+            state_name_to_id[state_name], level="location"
+        )
+        truth_weekly = data.golden_truth_weekly_sr.xs(
+            data.state_name_to_id[state_name], level="location"
+        )
+
+        # Initialize the local scores dataframe
+        daily_d = OrderedDict()
+        weekly_d = OrderedDict()
+
+        # --- TEST: WIS - DAILY
+        scores = fop.score_forecast(
+            which="gran",
+            method="wis",
+            truth_sr=truth_daily,
+            time_labels=day_pres + daily_horizon_deltas,
+            alphas=q_alphas,
+        )
+        daily_d["wis"], daily_d["wis_sharp"], daily_d["wis_calib"] = scores
+
+        # --- TEST: WIS - WEEKLY
+        scores = fop.score_forecast(
+            which="aggr",
+            method="wis",
+            truth_sr=truth_weekly,
+            time_labels=day_pres + weekly_horizon_deltas,
+            alphas=q_alphas
+        )
+        weekly_d["wis"], weekly_d["wis_sharp"], weekly_d["wis_calib"] = scores
+
+        # Construct the single forecast dataframes
+        weekly_df = pd.DataFrame(weekly_d, index=weekly_horizon_array)
+        weekly_df.index.name = "horizon_w"
+
+        daily_df = pd.DataFrame(daily_d, index=daily_horizon_array)
+        daily_df.index.name = "horizon_d"
+
+        return daily_df, weekly_df
+
+    # -----------------------------------
+    # Run all scores
+    # -----------------------------------
+    results = map_parallel_or_sequential(
+        lambda item: score_one_forecast(item[1], item[0][0], item[0][1]),
+        contents=fop_sr.items(),
+        ncpus=1,
+    )
+
+    # TODO: USA
+
+    # ----------------------------------------------
+    # Construct report and aggregate for final score
+    # ----------------------------------------------
+    # --- Weekly full report
+    weekly_scores_df = pd.concat(
+        [res[1] for res in results],
+        keys=fop_sr.index
+    )
+
+    # --- Daily full report
+    daily_scores_df = pd.concat(
+        [res[0] for res in results],
+        keys=fop_sr.index
+    )
+
+    print(weekly_scores_df)
+    print(daily_scores_df)
+    # for res in results:
+    #     print(res[1])
+
+    _LOGGER.log(SUCCESS, "Scoring completed.")
 
 
-# def _calc_rt_next_tmp(last_r_vals, nsamples, last_ct, _rng):
-#     """HARDCODED FUNCTION TO TEST MULTIPLE METHODS OF R(T) SYNTHESIS"""
-#     # --- INCIDENCE EXPONENTIAL DRIFT
-#     # TMP: define here drift parameters
-#     sigma = 0.00  # Width of the random walk normal steps
-#
-#     # alpha = 2.E-5  # California. Weight of the current incidence to deplete susceptibles.
-#     alpha = 6.E-5  # Illinois. Weight of the current incidence to deplete susceptibles.
-#     # alpha = 10.E-4  # Wyoming. Weight of the current incidence to deplete susceptibles.
-#
-#     bias = 0.000
-#
-#     return last_r_vals * np.exp(
-#         sigma * _rng.normal(scale=sigma, size=nsamples)  # RW
-#         - alpha * last_ct + bias
-#     )
+    #
+    #     # --- TEST - WEEKLY
+    #     scores = fop.score_forecast(
+    #         which="aggr",
+    #         method="wis",
+    #         truth_sr=truth_weekly,
+    #         time_labels=day_pres + weekly_horizon_deltas,
+    #         alphas=alphas,
+    #     )
 
 
-# @nb.njit
-# def step_reconstruction(
-#         i_t_fore, ct_past, rt_fore_2d, tg_past, tg_fore, tg_max,
-#         ct_fore_2d, nsamples, seed
-# ):
-#     """One hardcoded step of the reconstruction (renewal eq.)
-#     """
-#     np.random.seed(seed + i_t_fore)  # Seeds the numba or numpy generator
-#
-#     # Main loop over R(t) samples
-#     for i_sample in range(nsamples):
-#         rt_fore = rt_fore_2d[:, i_sample]
-#         ct_fore = ct_fore_2d[:, i_sample]
-#
-#         lamb = 0.  # Sum of generated cases from past cases
-#         r_curr = rt_fore[i_t_fore]
-#
-#         # Future series chunk
-#         for st in range(1, min(i_t_fore + 1, tg_max)):
-#             lamb += r_curr * tg_fore[st] * ct_fore[i_t_fore - st]
-#
-#         # Past series chunk
-#         for st in range(i_t_fore + 1, tg_max):
-#             lamb += r_curr * tg_past[st] * ct_past[-(st - i_t_fore)]
-#
-#         # Poisson number
-#         ct_fore[i_t_fore] = np.random.poisson(lamb)
+    # # fop: ParSelTrainOperator = data.fop_sr.iloc[0]
+    # # day_pres, state_name = data.fop_sr.index[0]
+    #
+    # truth_daily = data.golden_truth_daily_sr.xs(
+    #     data.state_name_to_id[state_name], level="location"
+    # )
+    # truth_weekly = data.golden_truth_weekly_sr.xs(
+    #     data.state_name_to_id[state_name], level="location"
+    # )
+
+
+
+# ----
+
+
+# ----
+
+
+def run_training(params: Params, data: Data, WHAT_ELSE=None):
+    """"""
+    #
+    # ----------------------------------------------------------------
+    # PREAMBLE
+    # ----------------------------------------------------------------
+    #
+    # --- Calculate the time deltas for the required daily horizons
+    # -()- Weekly
+    data.weekly_horizon_array = np.array(params.general["export_horizons"])
+    data.weekly_horizon_deltas = (
+        pd.TimedeltaIndex(data.weekly_horizon_array, unit="w"))
+    # -()- Daily
+    data.daily_horizon_array = b = np.array([
+        np.arange(WEEKLEN * (h - 1), WEEKLEN * h)
+        for h in data.weekly_horizon_array]).flatten()
+    data.daily_horizon_deltas = pd.TimedeltaIndex(b, unit="d")
+
+    # --- Calculate the alpha values for the required IQRs
+    quantiles = np.array(params.postprocessing["inc_quantiles"])
+    # TODO: warn if quantiles list is malformed!!!!!
+    num_quantiles = quantiles.shape[0]
+    data.q_alphas = 2 * quantiles[: (num_quantiles + 1) // 2]
+
+
+
+    # for muitas vezes (training loop):
+    run_forecasts_once(params, data, WHAT_ELSE=WHAT_ELSE)
+    score_forecasts_once(params, data)
+
+
+
+# -- -- - - - OAO APAGAR LATER
+
+    # # # # TODO TESTING THE SCORING
+    # fop: ParSelTrainOperator = data.fop_sr.iloc[0]
+    # day_pres, state_name = data.fop_sr.index[0]
+    #
+    # from rtrend_forecast.scoring import covered_score
+    #
+    # # WHAT DO I NEED
+    # # - Array of truth observations (daily or weekly)
+    # # - Dictionary-like of quantile forecasts
+    # # -
+    #
+    # truth_daily = data.golden_truth_daily_sr.xs(
+    #     data.state_name_to_id[state_name], level="location"
+    # )
+    # truth_weekly = data.golden_truth_weekly_sr.xs(
+    #     data.state_name_to_id[state_name], level="location"
+    # )
+    #
+    # # # --- TEST - DAILY
+    # # fop.score_forecast(
+    # #     which="gran",
+    # #     truth_sr=truth_daily,
+    # #     time_labels=day_pres + daily_horizon_deltas,
+    # #     alphas=alphas,
+    # # )
+    #
+    # # --- TEST - WEEKLY
+    # scores = fop.score_forecast(
+    #     which="aggr",
+    #     method="wis",
+    #     truth_sr=truth_weekly,
+    #     time_labels=day_pres + weekly_horizon_deltas,
+    #     alphas=alphas,
+    # )
+    #
+    # # covered_score()
 
 
 if __name__ == "__main__":

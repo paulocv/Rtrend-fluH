@@ -58,6 +58,13 @@ rt_mcmc/BKP_*
 !*.svg
 !rt_flu_logo.png
 
+!2022-2023_scripts
+!2022-2023_scripts/*
+!2023-2024_scripts
+!2023-2024_scripts/*
+#!OLD
+#!OLD/*
+
 # ----------------------------------
 # Standard Python gitignore template
 
@@ -190,3 +197,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
