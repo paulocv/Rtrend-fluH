@@ -30,7 +30,7 @@ from rtrend_interface.flusight_tools import (
 from rtrend_interface.forecast_operators import (
     WEEKLEN,
     ParSelTrainOperator,
-    FluSightForecastOperator,
+    FluSight2023ForecastOperator,
 )
 from rtrend_forecast.visualization import (
     rotate_ax_labels,
@@ -439,7 +439,7 @@ def run_forecasts_once(params: Params, data: Data):
 
         # Create the forecast operator
         # ----------------------------
-        fop = FluSightForecastOperator(
+        fop = FluSight2023ForecastOperator(
             # --- Child class arguments
             day_pres, params.general["nperiods_main_roi"],  # Child class args
             population=pop_df.loc[state_name, "population"],
@@ -559,7 +559,7 @@ def calculate_for_usa(params: Params, data: Data):
     df_list = list()
 
     for state_name, fop in fop_sr.items():
-        fop: FluSightForecastOperator
+        fop: FluSight2023ForecastOperator
         nsamples_state, nsteps = fop.inc.fore_aggr_df.shape
 
         # --- Take samples
@@ -636,7 +636,7 @@ def postprocess_all(params: Params, data: Data):
         #DEVNOTE: `fop` should also be compatible with USAForecast
         """
 
-        fop: FluSightForecastOperator | USAForecast
+        fop: FluSight2023ForecastOperator | USAForecast
         d = OrderedDict()  # Dict that's used to construct the dataframe
 
         size = fop.fore_quantiles.size  # Total number of items
@@ -757,7 +757,7 @@ def postprocess_all(params: Params, data: Data):
     rt_fore_dfs = list()
     keys = list()
     for state_name, fop in fop_sr.items():
-        fop: FluSightForecastOperator
+        fop: FluSight2023ForecastOperator
         # --- Select R(t) stats series from extras
         df_past = pd.DataFrame(
             {key: value for key, value in fop.extra.items()

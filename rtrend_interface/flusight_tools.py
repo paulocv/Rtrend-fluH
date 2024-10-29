@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from rtrend_interface.forecast_operators import FluSightForecastOperator
+from rtrend_interface.forecast_operators import FluSight2024ForecastOperator
 from rtrend_interface.parsel_utils import get_next_weekly_timestamp
 
 
@@ -198,7 +198,7 @@ def calc_target_date_from_horizon(horizon_seq, ref_date):
 
 
 def calc_rate_change_categorical_flusight(
-        fop: FluSightForecastOperator,
+        fop: FluSight2024ForecastOperator,
         count_rates: pd.Series,
         dates: FluSightDates,
         # day_pres: pd.Timestamp,
