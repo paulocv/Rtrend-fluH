@@ -137,7 +137,7 @@ class Data:
     day_pres_seq: pd.DatetimeIndex  # Sequence of present days to use
     use_state_names: None  # Names of locations that shall be used.
     date_state_idx: pd.MultiIndex  # Combined index for dates and states
-    truth_df_sr: pd.Series  # sr.loc[day_pres] = truth_df
+    truth_df_sr: pd.Series  # sr.loc[day_pres] = truth_df . Truth AS OF each day.
     golden_truth_daily_sr: pd.Series  # sr.loc[day_pres] = incidence. Most up-to-date truth.
     golden_truth_weekly_sr: pd.Series  # sr.loc[day_pres] = incidence. Most up-to-date truth.
     # summary_metrics_df: pd.DataFrame  # Overall summary metrics
