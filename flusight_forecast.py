@@ -46,7 +46,7 @@ from rtrend_interface.parsel_utils import (
     make_state_index,
     prepare_dict_for_yaml_export,
 )
-from rtrend_interface.truth_data_structs import FluDailyTruthData
+from rtrend_interface.truth_data_structs import FluDailyTruthData, FluWeeklyTruthData
 
 _CALL_TIME = datetime.datetime.now()
 
@@ -181,10 +181,11 @@ class Data:
     """
     dates: FluSightDates
     day_pres: pd.Timestamp
+    day_last_available_in_truth: pd.Timestamp
 
     pop_df: pd.DataFrame  # Data frame with population demographic data
     count_rates: pd.DataFrame  # Count thresholds for rate forecast
-    truth: FluDailyTruthData  # Object that holds daily truth data
+    truth: FluWeeklyTruthData  # Object that holds daily truth data
     all_state_names: list  # Names of all available locations to forecast
     state_name_to_id: dict  # From `location_name` to `location`
 
@@ -343,12 +344,30 @@ def import_simulation_data(params: Params, data: Data):
     # --------------------
     # IMPORT TRUTH DATA for the given date
     # --------------------
-    data.truth = FluDailyTruthData(
+    data.truth = FluWeeklyTruthData(
         params.general["hosp_data_path"],
         all_state_names=data.all_state_names,
         state_name_to_id=data.state_name_to_id,
         pop_data_path=params.general["pop_data_path"],
     )
+
+    # --- Checks regarding the available dates in the data
+    data.day_last_available_in_truth = data.truth.get_date_index().max()
+
+    # Check if all states have the most up-to-date data
+    for state_name in data.truth.all_state_names:
+        state_xs = data.truth.xs_state(state_name)
+        state_max_date = state_xs.index.max()
+
+        if state_max_date.date() < data.day_last_available_in_truth.date():
+            # Warn about the state being "outdated"
+            msg = ()
+            _LOGGER.warn(
+                f"State {state_name} seems to lack the latest "
+                f"weeks in the data. Overall last week = "
+                f"{data.day_last_available_in_truth.date().isoformat()}. "
+                f"Last day for {state_name} = {state_max_date.date().isoformat()}"
+            )
 
 
 def report_execution_times():
@@ -408,14 +427,16 @@ def run_forecasts_once(params: Params, data: Data):
     )
     date_index = (truth_df.index.get_level_values("date").unique()
                   .sort_values())
-    data.day_pres = day_pres = date_index[params.general["day_pres_id"]] + pd.Timedelta("1d")
-    #  ^  ^ Adds one day so that -1 is the first without data
+    data.day_pres = day_pres = date_index[params.general["day_pres_id"]]# + pd.Timedelta("1d")
+    #  ^  ^ For aggregated (weekly) input, day_pres is the day of the last report considered
     day_pres_str = day_pres.date().isoformat()
 
     # --- Unpacks structs to pass into subprocesses
     use_state_names = data.use_state_names
     state_name_to_id = data.state_name_to_id
     pop_df = data.pop_df
+
+    pass
 
     # --------------------------------
     # Define and run the forecast task
@@ -448,7 +469,7 @@ def run_forecasts_once(params: Params, data: Data):
             # --- Base class arguments
             incid_series=state_series,  # Base class args
             params=params.__dict__,
-            nperiods_fore=WEEKLEN * params.general["nperiods_fore"],
+            nperiods_fore=params.general["nperiods_fore"],
             name=f"{_sn}_{day_pres_str}",
             tg_past=tg,
         )
@@ -623,7 +644,9 @@ def postprocess_all(params: Params, data: Data):
     print(f"- Now date ................ {data.dates.now} ")
     print(f"- Next submission due date  {data.dates.due} ")
     print(f"- Reference date .......... {data.dates.ref} ")
+    print(f"- Last day in truth data .. {data.day_last_available_in_truth}")
     print(f"- Forecast day_present .... {data.day_pres}")
+    print()
 
     # -------------------------------------------
     # FluSight export format – QUANTILE forecasts
@@ -854,12 +877,3 @@ def export_all(params: Params, data: Data):
 
 if __name__ == "__main__":
     main()
-
-
-#
-
-
-# =============================================================================
-# ==================  OLD CODE VAULT  =========================================
-# =============================================================================
-

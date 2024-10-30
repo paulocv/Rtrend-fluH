@@ -1,20 +1,21 @@
 ---
 # This is the official input file for the FluSight 2023/2024 season forecast. 
 general:
-  nperiods_main_roi: 20  # In aggregated periods. Only region used by the forecast.
+  nperiods_main_roi: 20  # In aggregated periods. Only this region is seen by the forecast.
 
   # Dates
   day_pres_id: -1 # -266 -358 [Use for testing 2022]  # Index of day_pres in the truth file. Units are IN DAYS, not weeks!
   # day_pres_id: -8 # With prelim data!  # Index of day_pres in the truth file. Units are IN DAYS, not weeks!
   nperiods_fore: 6  # Weeks ahead of the last observed data to forecast.
-  season_start: 2023-09-01   # Date from which cumulatives are calculated.
+  season_start: 2024-09-01   # Date from which cumulatives are calculated.
   due_example: 2023-10-04 23:00:00  # (WED 11PM) Example of due date/time
   ref_example: 2023-10-07           # (SAT) Example of reference date
   export_horizons: [0, 1, 2, 3]  # Only export these horizon numbers to the FluSight file. Blank to export all.
 
   # Paths
-  hosp_data_path: "hosp_data/truth_daily_latest.csv"
+  hosp_data_path: "hosp_data/truth_weekly_latest.csv"
   hosp_data_fmt: "daily_inchosp_{date}.csv"  # Format string that accepts ISO date
+
   pop_data_path: "population_data/locations.csv"
   preproc_data_dir: "preproc/flusight_dev/01"
   # flusight_output_file: "forecast_out/latest.csv"  # Defined in the script
@@ -40,7 +41,7 @@ preprocessing:
   denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
 
   # For lowpass/polyfit method
-  denoise_cutoff: 0.100
+  denoise_cutoff: 0.300
   denoise_order: 2
   denoise_seed: 10
   

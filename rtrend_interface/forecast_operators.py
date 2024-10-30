@@ -28,7 +28,7 @@ class FluSight2024ForecastOperator(ForecastOperator):
     Experimental features should be tested in other forecast operators.
     """
 
-    is_aggr = False  # Refers to the INPUT DATA: it's granular
+    is_aggr = True  # Refers to the INPUT DATA: it's aggregated (weekly) since Nov-2024
     gran_dt = pd.Timedelta("1d")  # Granular period
     aggr_nperiods = WEEKLEN  # Duration of a week
 
@@ -50,7 +50,7 @@ class FluSight2024ForecastOperator(ForecastOperator):
 
         # Calculate and set the main ROI
         self.main_roi_len = nperiods_main_roi * self.aggr_dt
-        self.main_roi_end = day_pres - 1 * self.gran_dt
+        self.main_roi_end = day_pres
         self.main_roi_start = self.main_roi_end - self.main_roi_len
 
         self.set_main_roi(self.main_roi_start, self.main_roi_end)
@@ -68,11 +68,14 @@ class FluSight2024ForecastOperator(ForecastOperator):
         same internal state.
         """
         # Store raw series
-        self.extra["past_raw_sr"] = self.inc.past_gran_sr.copy()
+        self.extra["past_raw_sr"] = self.inc.past_aggr_sr.copy()
 
         # Denoise
-        self.denoise_and_fit(which="gran")
-        # self.extra["past_float_sr"] = self.inc.past_gran_sr.copy()
+        self.denoise_and_fit(which="aggr")
+        # self.extra["past_float_sr"] = self.inc.past_aggr_sr.copy()
+
+        # Interpolate
+        self.interpolate_to_granular()
 
         # Fix negative artifacts
         self.remove_negative_incidence(
@@ -166,7 +169,7 @@ class FluSight2024ForecastOperator(ForecastOperator):
 
     def callback_postprocessing(self):
 
-        self.aggregate_past_incidence()
+        # self.aggregate_past_incidence()
         self.aggregate_fore_incidence()
 
         # --- Make quantile for required aggregation levels
