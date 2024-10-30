@@ -1,0 +1,99 @@
+---
+general:
+  nperiods_fore: 4  # In aggregated periods
+  nperiods_main_roi: 20  # In aggregated periods. Only region used by the forecast.
+
+  date_first: 2022-10-22  # CDC: 2022-10-22. Season w/ margin: 2022-07-25
+  date_last: 2023-05-13   # CDC: 2023-05-13
+  date_step: 6  # Step in weeks (aggr period)
+  season_start: 2022-10-22   # Date from which cumulatives are calculated.
+
+  # Paths
+  hosp_data_dir: "hosp_data/season_2022-2023/"
+  hosp_data_fmt: "daily_inchosp_{date}.csv"  # Format string that accepts ISO date
+  pop_data_path: "population_data/locations.csv"
+  preproc_data_dir: "preproc/tests/01/"  # Buffered preprocessed and MCMC data
+
+  use_states: ["Wyoming", "Indiana", "New York"]  # Leave blank to use all
+  dont_use_states: ["US", "Virgin Islands"]
+
+  tg_shape: 10.
+  tg_rate: 3.333
+  tg_max: 30
+
+
+# --- PREPROCESSING
+preprocessing:
+  # interp_method: cumulative  # cumulative, direct, pycno
+  # interp_smooth: 0.01  # Spline relative smoothing factor
+
+  denoise_model: normal  # normal, normal_periodic, gamma_periodic
+  denoise_method: lowpass  # lowpass, polyfit, rollav/rolling_average
+  # For the noise object
+  denoise_coef: 1.0  # Noise coefficient
+  denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
+
+  # For lowpass/polyfit method
+  denoise_cutoff: 0.08
+  denoise_order: 2
+  denoise_seed: 10
+
+
+# --- R(t) ESTIMATION (MCMC)
+rt_estimation:
+#  method: mcmc  # Only mcmc for now
+  engine: c     # c, numba
+  seed: 20
+  roi_len: 30  # In granular periods. Must be bigger than nperiods_past. Blank to use main_roi (in weeks).
+
+  # MCMC parameters
+  nsim: 20000
+  sigma: 0.05
+
+  # Path of files for C engine
+
+# --- R(t) SYNTHESIS
+rt_synthesis:
+  synth_method: dynamic_ramp  # static_ramp, dynamic_ramp, rnd_normal, default
+  tg_synth_method: same  # ??
+  seed: 30
+
+  # Common parameters
+  q_low: 0.10    # Sorted ensemble: low quantile
+  q_hig: 0.90    # Sorted ensemble: high quantile
+  nperiods_past: 7  # Number of days (backwards) to consider in synthesis. Shorter than mcmc roi_len
+  r_max: 3.0     # Clamp up to these R values (for the average)
+
+  # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
+  k_start: 0.95    # Ramp method: starting coefficient
+  k_end: 0.85      # Ramp method: ending coefficient
+  i_saturate: -1   # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
+
+  # Dynamic ramp
+  r1_start: 1.0
+  r2_start: 1.2
+  r1_end: 0.9  # 1.5 # R_new Value to which R :  1 is converted
+  r2_end: 1.02  # 0.9 # R_new Value to which R = 2 is converted
+  transform: "quadratic"  # "linear", "quadratic"
+
+  # Normal distribution synthesis
+  center: 1.0
+  sigma: 0.05
+  nsamples: 500
+
+
+# --- C(t) RECONSTRUCTION
+inc_reconstruction:
+
+  method: default
+  gen_noise: true
+
+  seed: 1
+
+postprocessing:
+  inc_quantiles: [0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35,
+       0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7 , 0.75, 0.8, 0.85, 0.9,
+       0.95, 0.975, 0.99]
+  aggr_ref_tlabel: 2022-11-13  # Reference stamp that divides aggr. periods
+
+

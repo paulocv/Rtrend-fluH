@@ -1,0 +1,127 @@
+---
+# Main input file used for the Influenza **model training**.
+general:
+  nperiods_main_roi: 20  # In aggregated periods. Only region used by the forecast.
+
+  nperiods_fore: 4  # In aggregated periods
+  date_first: 2022-10-29  # CDC: 2022-10-22. Season w/ margin: 2022-07-25
+  date_last: 2023-05-13   # CDC: 2023-05-13
+  date_step: 4  # Step in weeks (aggr period)
+  season_start: 2022-09-01   # Date from which cumulatives are calculated.
+  export_horizons: [1, 2, 3, 4]  # Only CONSIDER these horizons to the scoring (in aggr periods).
+
+  # --- Paths
+  hosp_data_dir: "hosp_data/season_2022-2023/"
+  hosp_data_fmt: "daily_inchosp_{date}.csv"  # Format string that accepts ISO date
+  golden_data_path: "hosp_data/season_2022-2023/GOLDEN_daily_inchosp_2023-11-08.csv"  # Path to the consolidated truth data file, with data for all forecasts
+  pop_data_path: "population_data/locations.csv"
+
+  # preproc_data_dir: "preproc/2022-2023_buffer/cutoff0p10/"  # Buffered preprocessed and MCMC data
+  # preproc_data_dir: "preproc/2022-2023_buffer/scaling-dev/data_pwr/"  # Buffered preprocessed and MCMC data
+  preproc_data_dir: "preproc/dev_train/01"
+
+  use_states: ["Wyoming", "Illinois", "Florida", "California"] # ["Wyoming", "Illinois", "New York", "California"]  # Leave blank to use all
+  dont_use_states: ["US", "Virgin Islands"]
+
+  # --- Generation time
+  tg_model: "const_gamma"
+  tg_shape: 10.
+  tg_rate: 3.333
+  tg_max: 30
+
+  # --- Scoring (for the training loop)
+  score_aggr_level: gran  # Whether to score on the granular or aggregated quantiles
+  
+
+  # --- Training and parameter selection
+
+
+
+# --- PREPROCESSING
+preprocessing:
+
+  denoise_model: normal  # normal, normal_periodic, gamma_periodic
+  denoise_method: lowpass  # lowpass, polyfit, rollav/rolling_average
+  # For the noise object
+  denoise_coef: 1.0  # Noise coefficient
+  denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
+
+  # For lowpass/polyfit method
+  denoise_cutoff: 0.10
+  denoise_order: 2
+  denoise_seed: 10  
+
+  # Negative artifacts
+  negative_method: shift  # (clamp, shift) Method to deal with negative incidence values after filtering
+
+# --- R(t) ESTIMATION (MCMC)
+rt_estimation:
+#  method: mcmc  # Only mcmc for now
+  engine: numba     # c, numba
+  seed: 10
+  roi_len: 60  # In granular periods. Must be bigger than nperiods_past. Blank to use main_roi (in weeks).
+  i_t0: 30  # Skip the first i_t0 points in calculation.
+
+  # Data scaling
+  scale_method: data_pwr  # const, data_pwr, pop_pwr?
+  scale_roi_len: 60   # ["data_pwr" method] – How many granular periods of past incidence to consider for the scaling factor.
+  scale_power: 0.80
+  scale_ref_inc: 500  # Reference incidence for scaling ["data_pwr" method]
+  scale_ref_pop: 12000  # Reference population for scaling ["pop_pwr" method]
+  # scale_factor: 1.2  # ["const" method; overridden by other methods]
+
+  # MCMC parameters
+  nsim: 20000
+  sigma: 0.05
+
+  # Path of files for C engine
+
+# --- R(t) SYNTHESIS
+rt_synthesis: 
+  synth_method: drift_pop  # static_ramp, dynamic_ramp, rnd_normal, default, drift_pop, drift_const
+  tg_synth_method: same  # ??
+  seed: 10
+
+  # Common parameters
+  q_low: 0.01    # Sorted ensemble: low quantile
+  q_hig: 0.99    # Sorted ensemble: high quantile
+  nperiods_past: 14  # Number of days (backwards) to consider in synthesis. Shorter than mcmc roi_len
+  r_max: 3.0     # [UPDATE: rejects any estimate ensemble that reaches this threshold] Clamp up to these R values (for the average)
+
+  # Drift synth-reconstruction parameters
+  drift_pop_coef: 15.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t) 
+#  drift_coef: 1.0e-3  # Pure drift coefficient. Drift = coef * c(t). Overriden by other methods.
+  rw_coef: 0.0
+  bias: 0.10  # Previous: 0.06
+
+  # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
+  k_start: 0.95    # Ramp method: starting coefficient
+  k_end: 0.85      # Ramp method: ending coefficient
+  i_saturate: -1   # Ramp method: saturate ramp at this number of days. Use -1 to deactivate.
+
+  # Dynamic ramp
+  r1_start: 1.0
+  r2_start: 1.2
+  r1_end: 0.9  # 1.5 # R_new Value to which R :  1 is converted
+  r2_end: 1.02  # 0.9 # R_new Value to which R = 2 is converted
+  transform: "quadratic"  # "linear", "quadratic"
+
+  # Normal distribution synthesis
+  center: 1.01
+  sigma: 0.05
+  nsamples: 500
+
+
+# --- C(t) RECONSTRUCTION
+inc_reconstruction:
+  method: default
+  gen_noise: false
+  seed: 1
+
+postprocessing:
+  inc_quantiles: [0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35,
+       0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7 , 0.75, 0.8, 0.85, 0.9,
+       0.95, 0.975, 0.99]
+  aggr_ref_tlabel: 2023-10-08  # [SUNDAY 00am] The weekly stamp that divides weekly aggregations. 
+  use_aggr_level: both   # Whether the quantiles should be daily ("gran"), weekly ("aggr") or both ("both")
+  # aggr_ref_tlabel: 2022-11-13  # Reference stamp that divides aggr. periods

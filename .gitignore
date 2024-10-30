@@ -1,74 +1,6 @@
-# -------------------------
-# Custom gitignore patterns
-
-# Exclude everything first
-*
-
-# According to gitignore docs: "It is not possible to re-include a file if a parent directory of that file is excluded."
-# So you need to reinclude a directory first if you need some of its files.
-
-# Main python scripts
-!*.py
-!rtrend_tools/
-!rtrend_tools/*.py
-!rtrend_interface/
-!rtrend_interface/*.py
-
-# Re-ignore specific py files
-calc_season_stats.py
-apagar.py
-#parsel_*.py
-eval_param_selection.py
-simple_sir_tester.py
-generic_script_template.py
-
-# Sh scripts
-!activate_env.sh
-
-# Submodules
-!toolbox/
-!toolbox/*
-
-# MCMC stuff
-!main_mcmc_rt
-!rt_mcmc/
-!rt_mcmc/*
-rt_mcmc/BKP_*
-
-# Documentation
-!docs/
-!docs/*.md
-!docs/figs/
-!docs/figs/*
-
-# Official forecast outputs
-!forecast_out/
-!forecast_out/*-CEPH-Rtrend_fluH.csv
-!forecast_out/2023-2024_season
-!forecast_out/2023-2024_season/*
-
-# Important stuff and etc
-!.gitignore
-!LICENSE
-!README.md
-
-# Input files
-!inputs/
-!inputs/flusight_params.yaml
-
-# Logos
-!*.svg
-!rt_flu_logo.png
-
-!2022-2023_scripts
-!2022-2023_scripts/*
-!2023-2024_scripts
-!2023-2024_scripts/*
-#!OLD
-#!OLD/*
-
 # ----------------------------------
 # Standard Python gitignore template
+# ----------------------------------
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -199,4 +131,111 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+# ---------------------------------
+# JETBRAINS TEMPLATE
+# ---------------------------------
+# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
+# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+
+# I just decided to exclude everything here
+.idea
+
+
+
+# -----------------------
+# R TEMPLATE
+# -----------------------
+
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+.RDataTmp
+
+# User-specific files
+.Ruserdata
+
+# Example code in package build process
+*-Ex.R
+
+# Output files from R CMD build
+/*.tar.gz
+
+# Output files from R CMD check
+/*.Rcheck/
+
+# RStudio files
+.Rproj.user/
+
+# produced vignettes
+vignettes/*.html
+vignettes/*.pdf
+
+# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
+.httr-oauth
+
+# knitr and R markdown default cache directories
+*_cache/
+/cache/
+
+# Temporary files created by R markdown
+*.utf8.md
+*.knit.md
+
+# R Environment Variables
+.Renviron
+
+## pkgdown site
+#docs/
+
+# translation temp files
+po/*~
+
+# RStudio Connect folder
+rsconnect/
+
+
+# -------------------------
+# Custom gitignore patterns
+# -------------------------
+
+
+# ----------- New template (ignore only)
+
+OLD/
+
+# Jupyter notebooks
+*.ipynb
+
+/inputs/quick_flusight_params.yaml
+/inputs/parsel_dev_x10.yaml
+/inputs/bkp_parsel_playground.yaml
+
+forecast_out/*
+#forecast_out/2022-2023_season
+#forecast_out/2023-2024_season
+#forecast_out/latest.csv
+#forecast_out/tests
+#forecast_out/CEPH-Rtrend_fluH
+#forecast_out/FluSight-Baseline
+!forecast_out/readme.md
+
+hosp_data/*
+!hosp_data/readme.md
+
+outputs/*
+
+population_data/2022-2023_season
+
+tmp_figs/*
+!tmp_figs/readme.md
+
+## ETC
+ext_data
+apagar.py
+*/apagar.py
 
