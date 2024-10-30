@@ -67,132 +67,22 @@ class FluSight2024ForecastOperator(ForecastOperator):
         PreprocessOperator or loads buffered data to achieve the
         same internal state.
         """
+        # Store raw series
+        self.extra["past_raw_sr"] = self.inc.past_gran_sr.copy()
 
-        # EXCEPTIONS (PREPROCESSING TIME)
+        # Denoise
+        self.denoise_and_fit(which="gran")
+        # self.extra["past_float_sr"] = self.inc.past_gran_sr.copy()
 
-        # 2024-03-13 Puerto, Alaska
-        if (
-                self.state_name in [
-            "Puerto Rico",
-            "Hawaii",
-            "Alaska",
-            "Montana",
-            "Virginia",
-        ]):
-            self.sp["synth_method"] = "rnd_normal"
-            self.sp["sigma"] = 0.006
-            # Reduce sigma for Alaska
-            if self.state_name == "Alaska":
-                self.sp["sigma"] = 0.001
-            self.logger.warning(f"Exception applied")
+        # Fix negative artifacts
+        self.remove_negative_incidence(
+            warn=True, method=self.pp["negative_method"])
+        self.extra["past_denoised_sr"] = self.inc.past_gran_sr  # .copy()
 
-        # REGULAR RANDOM NORMAL
-        if self.state_name in [
-            "Alabama",
-            "Idaho",
-            "West Virginia",
-            "North Carolina",
-        ]:
-            self.sp["synth_method"] = "rnd_normal"
-
-        # Arizona is predicting huge increase and sharp turn
-        # 2024-04-03 – Not too bad now
-        if (
-                "Arizona" in self.name
-        ):
-            # self.ep["scale_ref_inc"] = 50
-            self.ep["scale_ref_inc"] = 180
-
-        # Connecticut: weekly oscillating pattern. Strengthen the filter.
-        if self.state_name in [
-            "Connecticut",
-            # "Alaska"
-        ]:
-            self.pp["denoise_cutoff"] = 0.07
-
-        # 2024-02-24 reduce trend for WV
-        # 2024-03-13 District of Columbia
-        if self.state_name in [
-            # "West Virginia",
-            "District of Columbia",
-        ]:
-            self.sp["initial_bias"] = -0.15
-
-        # 2024-03-13 New Mexico
-        # 2024-03-20 Change to initial bias
-        if self.state_name in [
-            # "West Virginia",
-            "New Mexico",
-        ]:
-            # self.sp["bias"] = -0.001
-            self.sp["initial_bias"] = -0.01
-
-        # # 2024-03-20 - States with some overconfidence-overestimating
-        # if self.state_name in [
-        #     # "West Virginia",
-        #     "Michigan"
-        #     "Ohio",
-        #     "Virginia",
-        #     "West Virginia",
-        #     # "Wisconsin",
-        # ]:
-        #     self.sp["initial_bias"] = -0.2
-        #     self.ep["scale_ref_inc"] *= 0.1
-
-        # Too confident 2024-04-24
-        # - Georgia, Colorado, Michigan, Mississippi, New York
-        # 2024-04-17 Too narrow
-        if self.state_name in [
-            "Colorado",
-            "Georgia",
-            "Michigan",
-            "Mississippi",
-            "New York",
-            # "North Carolina",
-        ]:
-            self.ep["scale_ref_inc"] *= 0.20
-
-        # 2024-04-17 Too wide
-        if self.state_name in [
-            "Vermont",
-        ]:
-            self.ep["scale_ref_inc"] *= 100  # ?!?!?!?
-
-        # 2024-03-20 – Utah - Reduce Uncertainty
-        if self.state_name in [
-            "Utah",
-        ]:
-            self.ep["scale_ref_inc"] = 5000
-
-        # 2024-03-13 DC - Reduce uncertainty
-        if self.state_name in [
-            "District of Columbia",
-        ]:
-            self.ep["scale_ref_inc"] = 1000
-            # self.sp["q_low"] = 0.40
-            # self.sp["q_hig"] = 0.60
-
-        # 2024-04-03 – Avoid late season rebound
-        if self.state_name in ["Louisiana"]:
-            self.ep["scale_ref_inc"] = 800
-
-        if "New-Hampshire" in self.name:
-            self.sp["drift_pop_coef"] *= 1.30
-            self.logger.warning(f"Exception applied: too little drift")
-
-        # 2024-03-27 – Oregon has too much uncertainty
-        if self.state_name in ["Oregon"]:
-            self.pp["denoise_cutoff"] = 0.07
-
-        if True:  # Placeholder: for now, does not load from file
-            ParSelPreprocessOperator.callback_preprocessing(self)
-
-        # elif [load from files]:  #  # Placeholder for file loading
-        #     function_that_leads_to_the_same_state()
-        #     self.set_stage_next()
+        # --- Debriefing
+        self.set_stage_next()
 
     def callback_rt_estimation(self):
-
         # Briefing
         # --------
         # MCMC preprocessing
@@ -207,7 +97,7 @@ class FluSight2024ForecastOperator(ForecastOperator):
         # Modify prefixes to contain the fop name
         self.ep["in_prefix"] = f"mcmc/inputs/{self.name}"
         self.ep["out_prefix"] = f"mcmc/outputs/{self.name}"
-        self.ep["out_prefix"] = f"mcmc/logs/{self.name}"
+        self.ep["log_prefix"] = f"mcmc/logs/{self.name}"
 
         try:
             self.estimate_rt_mcmc(
