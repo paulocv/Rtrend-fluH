@@ -16,7 +16,7 @@ general:
   hosp_data_path: "hosp_data/truth_weekly_latest.csv"
   hosp_data_fmt: "daily_inchosp_{date}.csv"  # Format string that accepts ISO date
 
-  pop_data_path: "population_data/locations.csv"
+  pop_data_path: "aux_data/locations.csv"
   preproc_data_dir: "preproc/flusight_dev/01"
   # flusight_output_file: "forecast_out/latest.csv"  # Defined in the script
 

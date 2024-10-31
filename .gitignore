@@ -206,11 +206,14 @@ rsconnect/
 
 # ----------- New template (ignore only)
 
-OLD/
+OLD/*
+!OLD/2022-2023_scripts
+!OLD/2023-2024_scripts
 
 # Jupyter notebooks
 *.ipynb
 
+inputs/OLD/
 /inputs/quick_flusight_params.yaml
 /inputs/parsel_dev_x10.yaml
 /inputs/bkp_parsel_playground.yaml
