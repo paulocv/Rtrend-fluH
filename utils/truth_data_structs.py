@@ -8,7 +8,7 @@ from rtrend_forecast.postprocessing import (
     get_period_unique_id,
     get_aggr_label_from_id,
 )
-from rtrend_interface.parsel_utils import (
+from utils.parsel_utils import (
     load_truth_cdc_simple,
     load_population_data
 )

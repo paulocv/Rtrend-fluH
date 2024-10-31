@@ -27,8 +27,8 @@ from rtrend_forecast.reporting import (
 from rtrend_forecast.structs import RtData, get_tg_object
 from rtrend_forecast.preprocessing import apply_lowpass_filter_pdseries
 from rtrend_forecast.utils import map_parallel_or_sequential
-from rtrend_interface.forecast_operators import WEEKLEN, ParSelTrainOperator
-from rtrend_interface.parsel_utils import load_population_data, make_date_state_index, load_truth_cdc_simple, make_mcmc_prefixes, \
+from utils.forecast_operators_flusight_2023 import WEEKLEN, ParSelTrainOperator
+from utils.parsel_utils import load_population_data, make_date_state_index, load_truth_cdc_simple, make_mcmc_prefixes, \
     make_file_friendly_name, make_rt_out_fname, make_filtered_fname
 
 _CALL_TIME = datetime.datetime.now()

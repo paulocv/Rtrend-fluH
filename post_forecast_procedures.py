@@ -13,12 +13,12 @@ from pathlib import Path
 import pandas as pd
 
 from rtrend_forecast.reporting import get_rtrend_logger, SUCCESS
-from rtrend_interface.flusight_tools import (
+from utils.flusight_tools import (
     FluSight2023Fore,
     FluSightGeneralOutputs,
     FluSightDates,
 )
-from rtrend_interface.truth_data_structs import FluDailyTruthData
+from utils.truth_data_structs import FluDailyTruthData
 
 
 _LOGGER = get_rtrend_logger().getChild(__name__)

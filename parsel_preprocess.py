@@ -21,9 +21,9 @@ from rtrend_forecast.structs import ConstGammaTg
 from rtrend_forecast.utils import make_dir_from, \
     map_parallel_or_sequential
 
-from rtrend_interface.forecast_operators import \
+from utils.forecast_operators_flusight_2023 import \
     ParSelPreprocessOperator, WEEKLEN
-from rtrend_interface.parsel_utils import make_date_state_index, \
+from utils.parsel_utils import make_date_state_index, \
     load_truth_cdc_simple, make_file_friendly_name, \
     make_mcmc_prefixes, make_filtered_fname, \
     prepare_dict_for_yaml_export, load_population_data

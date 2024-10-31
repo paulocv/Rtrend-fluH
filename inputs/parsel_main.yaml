@@ -57,7 +57,7 @@ preprocessing:
 # --- R(t) ESTIMATION (MCMC)
 rt_estimation:
 #  method: mcmc  # Only mcmc for now
-  engine: numba     # c, numba
+  engine: numba     # c, numba, gamma
   seed: 10
   roi_len: 60  # In granular periods. Must be bigger than nperiods_past. Blank to use main_roi (in weeks).
   i_t0: 30  # Skip the first i_t0 points in calculation.

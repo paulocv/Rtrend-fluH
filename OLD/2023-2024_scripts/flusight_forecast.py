@@ -30,14 +30,14 @@ from rtrend_forecast.reporting import (
 )
 from rtrend_forecast.structs import RtData, get_tg_object, IncidenceData
 from rtrend_forecast.utils import map_parallel_or_sequential
-from rtrend_interface.flusight_tools import (
+from utils.flusight_tools import (
     FluSightDates,
     calc_rate_change_categorical_flusight,
     calc_horizon_from_dates,
     rate_change_i_to_name,
     calc_target_date_from_horizon,
 )
-from rtrend_interface.forecast_operators import (
+from utils.forecast_operators_flusight_2023 import (
     WEEKLEN,
     ParSelTrainOperator,
     FluSight2023ForecastOperator,
@@ -47,7 +47,7 @@ from rtrend_forecast.visualization import (
     make_axes_seq,
     plot_fore_quantiles_as_area,
 )
-from rtrend_interface.parsel_utils import (
+from utils.parsel_utils import (
     load_population_data,
     make_date_state_index,
     load_truth_cdc_simple,
@@ -55,7 +55,7 @@ from rtrend_interface.parsel_utils import (
     make_state_index,
     prepare_dict_for_yaml_export,
 )
-from rtrend_interface.truth_data_structs import FluDailyTruthData
+from utils.truth_data_structs import FluDailyTruthData
 
 _CALL_TIME = datetime.datetime.now()
 
