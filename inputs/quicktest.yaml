@@ -11,7 +11,7 @@ general:
   # Paths
   hosp_data_dir: "hosp_data/season_2022-2023/"
   hosp_data_fmt: "daily_inchosp_{date}.csv"  # Format string that accepts ISO date
-  pop_data_path: "population_data/locations.csv"
+  pop_data_path: "aux_data/locations.csv"
   preproc_data_dir: "preproc/tests/01/"  # Buffered preprocessed and MCMC data
 
   use_states: ["Wyoming", "Indiana", "New York"]  # Leave blank to use all
@@ -42,7 +42,7 @@ preprocessing:
 # --- R(t) ESTIMATION (MCMC)
 rt_estimation:
 #  method: mcmc  # Only mcmc for now
-  engine: c     # c, numba
+  engine: numba     # c, numba
   seed: 20
   roi_len: 30  # In granular periods. Must be bigger than nperiods_past. Blank to use main_roi (in weeks).
 
