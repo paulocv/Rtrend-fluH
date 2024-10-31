@@ -213,7 +213,8 @@ OLD/*
 # Jupyter notebooks
 *.ipynb
 
-inputs/OLD/
+inputs/OLD/*
+!inputs/OLD/flusight_params_2023-2024_last.yaml
 /inputs/quick_flusight_params.yaml
 /inputs/parsel_dev_x10.yaml
 /inputs/bkp_parsel_playground.yaml

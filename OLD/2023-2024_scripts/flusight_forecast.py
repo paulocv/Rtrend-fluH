@@ -1,5 +1,15 @@
 """
 Runs the Rtrend forecasting method for the FluSight CDC initiative.
+Prepared for the 2023-2024 FluSight season.
+
+THIS IS A SCRIPT FOR A FORMER EDITION OF THE INITIATIVE.
+
+Usage
+------
+To test this script in legacy mode, you should change the input file and other
+parameters to use some archived files. Example:
+
+>  python OLD/2023-2024_scripts/flusight_forecast.py --now 2024-04-21 -i inputs/OLD/flusight_params_2023-2024_last.yaml -o outputs/2023-2024_season_outs/flusight_202/legacy
 """
 
 import argparse
@@ -63,7 +73,8 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
 )
 
 DEFAULT_PARAMS_GENERAL = dict(  # Parameters from the `general` dict
-    pop_data_path="population_data/locations.csv",
+    pop_data_path="aux_data/locations.csv",
+    # hosp_data_path="hosp_data/truth_daily_latest.csv",
     hosp_data_path="hosp_data/truth_daily_latest.csv",
     forecast_days_ahead=2,  # Forecast evaluation ahead of the day_pres
 
