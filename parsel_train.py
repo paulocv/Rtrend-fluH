@@ -27,7 +27,7 @@ from rtrend_forecast.reporting import (
 from rtrend_forecast.structs import RtData, get_tg_object
 from rtrend_forecast.preprocessing import apply_lowpass_filter_pdseries
 from rtrend_forecast.utils import map_parallel_or_sequential
-from utils.forecast_operators_flusight_2023 import WEEKLEN, ParSelTrainOperator
+from utils.forecast_operators_experimental import WEEKLEN, ParSelTrainOperator
 from utils.parsel_utils import load_population_data, make_date_state_index, load_truth_cdc_simple, make_mcmc_prefixes, \
     make_file_friendly_name, make_rt_out_fname, make_filtered_fname
 
@@ -600,20 +600,21 @@ def score_forecasts_once(params: Params, data: Data):
     # ----------------------------------------------
     # Construct report and aggregate for final score
     # ----------------------------------------------
-    # --- Weekly full report
-    weekly_scores_df = pd.concat(
-        [res[1] for res in results],
-        keys=fop_sr.index
-    )
-
     # --- Daily full report
     daily_scores_df = pd.concat(
         [res[0] for res in results],
         keys=fop_sr.index
     )
 
-    print(weekly_scores_df)
+    # --- Weekly full report
+    weekly_scores_df = pd.concat(
+        [res[1] for res in results],
+        keys=fop_sr.index
+    )
+
+
     print(daily_scores_df)
+    print(weekly_scores_df)
     # for res in results:
     #     print(res[1])
 

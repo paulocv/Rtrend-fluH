@@ -39,7 +39,6 @@ from utils.flusight_tools import (
 )
 from utils.forecast_operators_flusight_2023 import (
     WEEKLEN,
-    ParSelTrainOperator,
     FluSight2023ForecastOperator,
 )
 from rtrend_forecast.visualization import (

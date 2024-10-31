@@ -1,5 +1,5 @@
-"""Define instances of the ForecastOperator class to use in the 2023-2024
-flusight season.
+"""
+Definition of Experimental Forecast Operators, for testing new and modified features.
 """
 
 import gc
@@ -16,15 +16,119 @@ from utils.parsel_utils import make_mcmc_prefixes
 WEEKLEN = 7  # USE THIS LENGTH OF THE WEEK for parsel project.
 
 
-class FluSight2023ForecastOperator(ForecastOperator):
-    """
-    This is the forecast operator for the 2023/2024 season of the CDC
-    FluSight forecast.
-
-    AS OF NOW... it only derivates from the Training operator, but a
-    separate version shall be made at some point.
+class ParSelPreprocessOperator(ForecastOperator):
+    """Forecast operator that proceeds only to the MCMC R(t)
+    estimation.
     """
 
+    is_aggr = False  # Refers to the INPUT DATA: it's granular
+    gran_dt = pd.Timedelta("1d")  # Granular period
+    aggr_nperiods = WEEKLEN  # Duration of a week
+
+    def __init__(
+            self,
+            main_roi_start: pd.Timestamp, main_roi_end: pd.Timestamp,
+            *args,
+            _sn: str = "", day_pres_str: str = "",  # State-date strings
+            **kwargs):
+        """
+        Parameters
+        ----------
+        main_roi_start : pd.Timestamp
+            Starting point of the main region-of-interest (ROI). The
+            entire forecast pipeline will only be aware of this region
+            of the data.
+        main_roi_end : pd.Timestamp
+            Last day of the main ROI. One day before the "present day".
+        _sn : str (optional)
+            File-friendyl name of the location or state
+            Must not contain whitespaces.
+        day_pres_str : str (optional)
+            File-friendly string representation of the present day.
+            Must not contain whitespaces.
+
+        Other arguments are inherited from the base class
+        `ForecastOperator`.
+
+        """
+        super(ParSelPreprocessOperator, self).__init__(*args, **kwargs)
+
+        self.main_roi_start = main_roi_start
+        self.main_roi_end = main_roi_end
+
+        # Date and state info (Optional).
+        self._sn = _sn
+        self.day_pres_str = day_pres_str
+
+        # --- ROI
+        self.set_main_roi(self.main_roi_start, self.main_roi_end,
+                          sort_data=True)
+
+    def callback_preprocessing(self):
+
+        # Store raw series
+        self.extra["past_raw_sr"] = self.inc.past_gran_sr.copy()
+
+        # Denoise
+        self.denoise_and_fit(which="gran")
+        # self.extra["past_float_sr"] = self.inc.past_gran_sr.copy()
+
+        # Fix negative artifacts
+        self.remove_negative_incidence(
+            warn=True, method=self.pp["negative_method"])
+        self.extra["past_denoised_sr"] = self.inc.past_gran_sr#.copy()
+
+        # --- Debriefing
+        self.set_stage_next()
+
+    def callback_rt_estimation(self):
+        """"""
+        # Briefing
+        # --------
+        # MCMC preprocessing
+        scaled = self.get_scaled_past_incidence("gran")
+        # self.extra["past_scaled_sr"] = scaled
+
+        rounded = scaled.round()
+        self.extra["past_scaled_int_sr"] = rounded
+
+        # --- Create the paths to MCMC files (in, out, log)
+        self.rt_estimation_params.update(
+            make_mcmc_prefixes(
+                self.day_pres_str,
+                self._sn,
+                self.general_params["preproc_data_dir"],
+            )
+        )
+
+        # Execution
+        # ---------
+
+        try:
+            self.estimate_rt_mcmc(
+                ct_array=rounded, sim_name="",
+            )
+
+        # Debriefing
+        # ----------
+        except McmcError as e:
+            self.logger.error(f"An McmcError occurred: {e}")
+            self.set_stage_error()
+            return
+
+        self.set_stage_done()
+
+
+#
+
+#
+
+#
+
+#
+
+
+class ParSelTrainOperator(ForecastOperator):
     """A forecast operator designed for training the parameter
     selection machine.
     It starts from already preprocessed data (included MCMC R(t)
@@ -37,7 +141,6 @@ class FluSight2023ForecastOperator(ForecastOperator):
 
     # Declared members
     fore_quantiles: pd.DataFrame
-
     #  ^ ^ Redundant to self.inc.aggr_quantiles or self.inc.gran_quantiles
 
     def __init__(
@@ -50,7 +153,7 @@ class FluSight2023ForecastOperator(ForecastOperator):
             *args,
             state_name="#nostate",
             **kwargs):
-        super().__init__(*args, **kwargs)
+        super(ParSelTrainOperator, self).__init__(*args, **kwargs)
 
         # Calculate and set the main ROI
         self.main_roi_len = nperiods_main_roi * self.aggr_dt
@@ -76,12 +179,12 @@ class FluSight2023ForecastOperator(ForecastOperator):
 
         # 2024-03-13 Puerto, Alaska
         if (
-                self.state_name in [
-            "Puerto Rico",
-            "Hawaii",
-            "Alaska",
-            "Montana",
-            "Virginia",
+            self.state_name in [
+                "Puerto Rico",
+                "Hawaii",
+                "Alaska",
+                "Montana",
+                "Virginia",
         ]):
             self.sp["synth_method"] = "rnd_normal"
             self.sp["sigma"] = 0.006
@@ -99,10 +202,11 @@ class FluSight2023ForecastOperator(ForecastOperator):
         ]:
             self.sp["synth_method"] = "rnd_normal"
 
+
         # Arizona is predicting huge increase and sharp turn
         # 2024-04-03 – Not too bad now
         if (
-                "Arizona" in self.name
+            "Arizona" in self.name
         ):
             # self.ep["scale_ref_inc"] = 50
             self.ep["scale_ref_inc"] = 180
@@ -188,26 +292,8 @@ class FluSight2023ForecastOperator(ForecastOperator):
         if self.state_name in ["Oregon"]:
             self.pp["denoise_cutoff"] = 0.07
 
-        # ==============================================================
-
-        # Store raw series
-        self.extra["past_raw_sr"] = self.inc.past_gran_sr.copy()
-
-        # Denoise
-        self.denoise_and_fit(which="gran")
-        # self.extra["past_float_sr"] = self.inc.past_gran_sr.copy()
-
-        # Fix negative artifacts
-        self.remove_negative_incidence(
-            warn=True, method=self.pp["negative_method"])
-        self.extra["past_denoised_sr"] = self.inc.past_gran_sr#.copy()
-
-        # --- Debriefing
-        self.set_stage_next()
-
-
-        # if True:  # Placeholder: for now, does not load from file
-        #     self.callback_preprocessing()
+        if True:  # Placeholder: for now, does not load from file
+            ParSelPreprocessOperator.callback_preprocessing(self)
 
         # elif [load from files]:  #  # Placeholder for file loading
         #     function_that_leads_to_the_same_state()
@@ -264,13 +350,13 @@ class FluSight2023ForecastOperator(ForecastOperator):
         # --------------------------------------------
         # ==============================================
         # --- TMP FIX: NOT ENOUGH CASES TO RECONSTRUCT
-        n_past = 8  # How many days in the past to check
+        n_past = 8   # How many days in the past to check
         c_min = 1.0  # Minimum number of cases expected
         c_add = 0.9  # How much to add
         avg = self.inc.past_gran_sr.iloc[-n_past:].mean()
         if avg < c_min:
             # --- Add cases
-            add = c_add  # c_min - avg  # c_add
+            add = c_add  #  c_min - avg  # c_add
             self.inc.past_gran_sr.iloc[-n_past:] += add
             self.logger.info(
                 f"Added {add} to the daily incidence so to have cases"
@@ -312,17 +398,3 @@ class FluSight2023ForecastOperator(ForecastOperator):
         # OBS: Categorical rate change is calculated in FluSight script
 
         self.set_stage_next()
-
-    def dump_heavy_stuff(self):
-        """Manually discard structures that have high memory usage,
-        but are possibly not useful for the next stages.
-
-        OVERRIDES the base function by keeping weekly forecast
-        trajectories.
-        """
-        self.rt_past = None
-        self.rt_fore = None
-        self.inc.fore_gran_df = None
-        # self.inc.fore_agg_df = None
-
-        gc.collect()

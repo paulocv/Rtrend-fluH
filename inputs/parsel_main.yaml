@@ -14,7 +14,7 @@ general:
   hosp_data_dir: "hosp_data/season_2022-2023/"
   hosp_data_fmt: "daily_inchosp_{date}.csv"  # Format string that accepts ISO date
   golden_data_path: "hosp_data/season_2022-2023/GOLDEN_daily_inchosp_2023-11-08.csv"  # Path to the consolidated truth data file, with data for all forecasts
-  pop_data_path: "population_data/locations.csv"
+  pop_data_path: "aux_data/locations.csv"
 
   # preproc_data_dir: "preproc/2022-2023_buffer/cutoff0p10/"  # Buffered preprocessed and MCMC data
   # preproc_data_dir: "preproc/2022-2023_buffer/scaling-dev/data_pwr/"  # Buffered preprocessed and MCMC data
@@ -31,7 +31,6 @@ general:
 
   # --- Scoring (for the training loop)
   score_aggr_level: gran  # Whether to score on the granular or aggregated quantiles
-  
 
   # --- Training and parameter selection
 
