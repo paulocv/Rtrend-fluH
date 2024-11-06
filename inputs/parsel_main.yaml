@@ -6,7 +6,7 @@ general:
   nperiods_fore: 4  # In aggregated periods
   date_first: 2022-10-29  # CDC: 2022-10-22. Season w/ margin: 2022-07-25
   date_last: 2023-05-13   # CDC: 2023-05-13
-  date_step: 4  # Step in weeks (aggr period)
+  date_step: 6  # Step in weeks (aggr period)
   season_start: 2022-09-01   # Date from which cumulatives are calculated.
   export_horizons: [1, 2, 3, 4]  # Only CONSIDER these horizons to the scoring (in aggr periods).
 
@@ -56,7 +56,7 @@ preprocessing:
 # --- R(t) ESTIMATION (MCMC)
 rt_estimation:
 #  method: mcmc  # Only mcmc for now
-  engine: numba     # c, numba, gamma
+  engine: gamma     # c, numba, gamma
   seed: 10
   roi_len: 60  # In granular periods. Must be bigger than nperiods_past. Blank to use main_roi (in weeks).
   i_t0: 30  # Skip the first i_t0 points in calculation.

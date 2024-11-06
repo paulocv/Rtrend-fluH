@@ -142,8 +142,8 @@ class Data:
     golden_truth_weekly_sr: pd.Series  # sr.loc[day_pres] = incidence. Most up-to-date truth.
     # summary_metrics_df: pd.DataFrame  # Overall summary metrics
 
-    fop_sr: pd.Series  # Series of forecast operators, keyed by state
-    fop_sr_valid_mask: pd.Series
+    # fop_sr: pd.Series  # Series of forecast operators, keyed by state
+    # fop_sr_valid_mask: pd.Series
 
     # Scoring and exporting
     weekly_horizon_array: np.ndarray  # Requested horizons as int array (in weeks)
@@ -151,6 +151,23 @@ class Data:
     weekly_horizon_deltas: pd.TimedeltaIndex  # Horizons as time deltas
     daily_horizon_deltas: pd.TimedeltaIndex  # Daily horizons as time
     q_alphas: np.ndarray
+
+
+class TrainIterationData:
+    """A data bunch for storing data from a specific iteration."""
+    fop_sr: pd.Series
+    fop_sr_valid_mask: pd.Series
+    daily_scores_df: pd.DataFrame
+    weekly_scores_df: pd.DataFrame
+
+    def __init__(self, **kwargs):
+        """"""
+        # --- Smart init: create elements if they are informed as constructor keyword args
+        for name in [
+                "fop_sr", "fop_sr_valid_mask", "daily_scores_df", "weekly_scores_df"
+        ]:
+            if name in kwargs:
+                setattr(self, name, kwargs[name])
 
 #
 
@@ -355,7 +372,7 @@ def load_and_aggregate_golden_truth(params: Params):
 
 # @LOCAL_XTT.track()
 @GLOBAL_XTT.track()
-def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
+def run_forecasts_once(params: Params, data: Data, iter_data: TrainIterationData, WHAT_ELSE=None):
     """Runs the forecast with the
     given parameters, for all locations and selected dates.
     """
@@ -452,68 +469,18 @@ def run_forecasts_once(params: Params, data: Data, WHAT_ELSE=None):
     # Post-forecast collection
     # ---------------------------------------------
     # --- Build one series of fop objects (with 2-level multiindex)
-    data.fop_sr = (
+    iter_data.fop_sr = (
         pd.Series(sum(date_state_fop_list, []),
                   index=data.date_state_idx))
 
     # --- Store and check valid outputs
-    data.fop_sr_valid_mask = data.fop_sr.map(
+    iter_data.fop_sr_valid_mask = iter_data.fop_sr.map(
         lambda fop: fop.success
     )
 
-    #
-    # # todo test outcomes of one forecast ---------------------------
-    # oanfoainf o ------------------ APAGAR LATER ===============
-    # fop_df = pd.DataFrame(
-    #     date_state_fop_list,
-    #     index=data.day_pres_seq,
-    #     columns=use_state_names,
-    # )
-    #
-    # # fop: ParSelTrainOperator = date_state_fop_list[1][0]  # From nested list
-    # probe_state = "California"  # "Florida" # "Wyoming" # "Illinois"
-    # fop: ParSelTrainOperator = fop_df.iloc[1][probe_state]
-    #
-    # print("----- TEST ONE FORECAST -----")
-    # print(fop.name)
-    #
-    # latest_truth_df = load_truth_for_day_pres(params, data.day_pres_seq[-1])
-    # latest_incid_sr = (
-    #     latest_truth_df.xs(state_name_to_id[probe_state], level="location")["value"])
-    # fop.daily_quantiles = fop.make_quantiles_for("gran") # DAILY (optional)
-    #
-    # from matplotlib import pyplot as plt
-    # from rtrend_tools.visualization import plot_precalc_quantiles_as_layers
-    #
-    # fig, ax = plt.subplots()
-    # ax: plt.Axes
-    #
-    # # fop.logger.error(f"WATCH {fop.inc.past_aggr_sr}")
-    # # fop.logger.error(f"WATCH {fop.time.past_aggr_idx}")
-    #
-    # # # WEEKLY
-    # # ax.plot(fop.inc.past_aggr_sr)
-    # # ax.plot(fop.fore_quantiles.loc[0.5], "--")
-    # # plot_precalc_quantiles_as_layers(
-    # #     ax, fop.fore_quantiles.to_numpy(), fop.time.fore_aggr_idx)
-    #
-    # # DAILY
-    #
-    # ax.plot(fop.inc.past_gran_sr)  # Filtered past daily
-    # print(latest_incid_sr[fop.time.pg0:fop.time.fa1])
-    # ax.plot(latest_incid_sr[fop.time.pg0:fop.time.fg1])  # Truth series
-    # plot_precalc_quantiles_as_layers(
-    #     ax, fop.daily_quantiles.to_numpy(), fop.time.fore_gran_idx
-    # )
-    # ax.plot(fop.daily_quantiles.loc[0.5], "--", color="gray")
-    #
-    # ax.set_title(fop.name)
-    #
-    # plt.show()
-
 
 @GLOBAL_XTT.track()
-def score_forecasts_once(params: Params, data: Data):
+def score_forecasts_once(params: Params, data: Data, iter_data: TrainIterationData):
     """
     Scores prerun forecasts with given parameters, for all locations
     and selected dates.
@@ -523,11 +490,12 @@ def score_forecasts_once(params: Params, data: Data):
     # -----------------------------------
     _LOGGER.debug("Begin scoring forecasts.")
     # Filter invalid
-    fop_sr = data.fop_sr.loc[data.fop_sr_valid_mask]
+    fop_sr = iter_data.fop_sr.loc[iter_data.fop_sr_valid_mask]
 
     # Unpack values
     q_alphas = data.q_alphas
     golden_truth_daily_sr = data.golden_truth_daily_sr
+    golden_truth_weekly_sr = data.golden_truth_weekly_sr
     state_name_to_id = data.state_name_to_id
 
     daily_horizon_array = data.daily_horizon_array
@@ -549,8 +517,8 @@ def score_forecasts_once(params: Params, data: Data):
         truth_daily = golden_truth_daily_sr.xs(
             state_name_to_id[state_name], level="location"
         )
-        truth_weekly = data.golden_truth_weekly_sr.xs(
-            data.state_name_to_id[state_name], level="location"
+        truth_weekly = golden_truth_weekly_sr.xs(
+            state_name_to_id[state_name], level="location"
         )
 
         # Initialize the local scores dataframe
@@ -577,6 +545,15 @@ def score_forecasts_once(params: Params, data: Data):
         )
         weekly_d["wis"], weekly_d["wis_sharp"], weekly_d["wis_calib"] = scores
 
+        # --- p-score (predicted interval that captures the observation)
+        weekly_d["p"] = fop.score_forecast(
+            which="aggr",
+            method="p",
+            truth_sr=truth_weekly,
+            time_labels=day_pres + weekly_horizon_deltas,
+            alphas=q_alphas
+        )
+
         # Construct the single forecast dataframes
         weekly_df = pd.DataFrame(weekly_d, index=weekly_horizon_array)
         weekly_df.index.name = "horizon_w"
@@ -601,21 +578,21 @@ def score_forecasts_once(params: Params, data: Data):
     # Construct report and aggregate for final score
     # ----------------------------------------------
     # --- Daily full report
-    daily_scores_df = pd.concat(
+    iter_data.daily_scores_df = pd.concat(
         [res[0] for res in results],
         keys=fop_sr.index
     )
 
     # --- Weekly full report
-    weekly_scores_df = pd.concat(
+    iter_data.weekly_scores_df = pd.concat(
         [res[1] for res in results],
         keys=fop_sr.index
     )
 
 
-    print(daily_scores_df)
-    print(weekly_scores_df)
-    # for res in results:
+    # print(daily_scores_df)
+    # print(weekly_scores_df)
+    # # for res in results:
     #     print(res[1])
 
     _LOGGER.log(SUCCESS, "Scoring completed.")
@@ -674,12 +651,23 @@ def run_training(params: Params, data: Data, WHAT_ELSE=None):
     num_quantiles = quantiles.shape[0]
     data.q_alphas = 2 * quantiles[: (num_quantiles + 1) // 2]
 
-
+    #
+    # ----------------------------------------------------------------
+    # TRAINING LOOP
+    # ----------------------------------------------------------------
+    #
 
     # for muitas vezes (training loop):
-    run_forecasts_once(params, data, WHAT_ELSE=WHAT_ELSE)
-    score_forecasts_once(params, data)
+    iter_data = TrainIterationData()
 
+    run_forecasts_once(params, data, iter_data, WHAT_ELSE=WHAT_ELSE)
+    score_forecasts_once(params, data, iter_data)
+
+    # Now you can work with `iter_data` to postprocess and evaluate this iteration.
+
+
+
+    pass
 
 
 # -- -- - - - OAO APAGAR LATER
