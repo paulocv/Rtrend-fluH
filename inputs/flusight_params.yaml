@@ -117,3 +117,9 @@ postprocessing:
        0.95, 0.975, 0.99]
   aggr_ref_tlabel: 2023-10-08  # [SUNDAY 00am] The weekly stamp that divides weekly aggregations. 
   use_aggr_level: aggr   # Whether the quantiles should be daily ("gran"), weekly ("aggr") or both ("both")
+  categorical_thresholds:  # Rate thresholds for categorical rate change forecast
+      -1: [2.0, 1.0],
+      0:  [3.0, 1.0],
+      1:  [4.0, 2.0],
+      2:  [5.0, 2.5],
+      3:  [5.0, 2.5],

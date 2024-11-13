@@ -1,5 +1,8 @@
 ---
-# This is the official input file for the FluSight 2023/2024 season forecast. 
+# This is the official input file for the FluSight 2023/2024 season forecast.
+# THIS FILE MUST BE MAINTAINED.
+# It enables us to run forecasts like in the 2023/2024
+# season, even if there are changes to the project and the forecasting code.
 general:
   nperiods_main_roi: 20  # In aggregated periods. Only region used by the forecast.
 
@@ -16,7 +19,7 @@ general:
 #  hosp_data_path: "hosp_data/truth_daily_latest.csv"
   hosp_data_path: "hosp_data/season_2023-2024/truth_daily_latest_2024-04-17.csv"  # LEGACY FILE
   hosp_data_fmt: "daily_inchosp_{date}.csv"  # Format string that accepts ISO date
-  pop_data_path: "population_data/locations.csv"
+  pop_data_path: "aux_data/2023-2024_season/locations.csv"  # LEGACY FILE
   preproc_data_dir: "preproc/flusight_dev/01"
   # flusight_output_file: "forecast_out/latest.csv"  # Defined in the script
 
