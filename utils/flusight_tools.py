@@ -206,6 +206,7 @@ def calc_rate_change_categorical_flusight(
         last_observed_date: pd.Timestamp,
         use_horizons=None,
         stable_abs_counts=10,  # Absolute counts under which always stable
+        thresholds=None,
 ):
     """Calculate the rate change categorical forecasts for FluSight.
 
@@ -234,15 +235,15 @@ def calc_rate_change_categorical_flusight(
     # ----------------------------------------------------------------
     # --- Edges of baseline from granular data
 
-    # -()- Original: baseline = 2w before reference
-    baseline_gran_end = dates.ref - pd.Timedelta("2w")
-    baseline_gran_start = baseline_gran_end - pd.Timedelta("1w")
-    # last_observed_date = day_pres - pd.Timedelta("1d")  # Last observed
-
-    # # -()- FluSight Update 2023-11-03  TODO: switch to this and test
-    # baseline_gran_end = dates.ref - pd.Timedelta("1w")
+    # # -()- Original: baseline = 2w before reference
+    # baseline_gran_end = dates.ref - pd.Timedelta("2w")
     # baseline_gran_start = baseline_gran_end - pd.Timedelta("1w")
     # # last_observed_date = day_pres - pd.Timedelta("1d")  # Last observed
+
+    # -()- FluSight Update 2023-11-03
+    baseline_gran_end = dates.ref - pd.Timedelta("1w")
+    baseline_gran_start = baseline_gran_end - pd.Timedelta("1w")
+    # last_observed_date = day_pres - pd.Timedelta("1d")  # Last observed
 
     # -\\-
 
@@ -283,7 +284,7 @@ def calc_rate_change_categorical_flusight(
     # Calculate the count changes with respect to the baseline
     # ----------------------------------------------------------------
 
-    # Subtract all trajectories from baseline, mathing rows (samples)
+    # Subtract all trajectories from baseline, matching rows (samples)
     count_changes_df = fop.inc.fore_aggr_df.sub(baseline, axis=0).round().astype(int)
 
     # Change column names to horizon number
@@ -297,13 +298,16 @@ def calc_rate_change_categorical_flusight(
     # Calculate rate change bins for each horizon
     # ------------------------------------------------------------------
 
-    thresholds = {  # Signature: d[i_horizon] = (large_r, stable_r)
-        -1: (2.0, 1.0),
-        0: (3.0, 1.0),
-        1: (4.0, 2.0),
-        2: (5.0, 2.5),
-        3: (5.0, 2.5),
-    }
+    # Signature: d[i_horizon] = (large_r, stable_r)
+    thresholds = (thresholds or
+        {    # DEFAULT THRESHOLDS: 2023-2024 season
+            -1: (2.0, 1.0),
+            0: (3.0, 1.0),
+            1: (4.0, 2.0),
+            2: (5.0, 2.5),
+            3: (5.0, 2.5),
+        }
+    )
     # Array with category ids
     bins = np.array(list(rate_change_i_to_name.keys()), dtype=int)
     bins.sort()
