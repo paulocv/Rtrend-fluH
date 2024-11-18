@@ -393,6 +393,12 @@ def report_execution_times():
 
 #
 
+def apply_forecast_exceptions(
+        fop: FluSight2024ForecastOperator,
+):
+    """Handle exceptional conditions by changing forecast parameters."""
+
+
 
 # -------------------------------------------------------------------
 # MAIN TRAINING ROUTINES
@@ -474,6 +480,11 @@ def run_forecasts_once(params: Params, data: Data):
             tg_past=tg,
         )
         _LOGGER.debug(f"Created forecast operator {fop.name}")
+
+        # Exceptional forecast conditions
+        # -------------------------------
+        apply_forecast_exceptions(fop)
+        # ===============================
 
         # Run the forecast operations
         # --------------------------

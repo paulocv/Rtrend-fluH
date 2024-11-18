@@ -13,7 +13,7 @@ general:
   export_horizons: [0, 1, 2, 3]  # Only export these horizon numbers to the FluSight file. Blank to export all.
 
   # Paths
-  hosp_data_path: "hosp_data/truth_weekly_latest.csv"
+  hosp_data_path: "hosp_data/truth_latest.csv"
   hosp_data_fmt: "daily_inchosp_{date}.csv"  # Format string that accepts ISO date
 
   pop_data_path: "aux_data/locations.csv"

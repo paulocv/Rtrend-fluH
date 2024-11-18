@@ -63,6 +63,16 @@ class FluSight2024ForecastOperator(ForecastOperator):
         # Store raw series
         self.extra["past_raw_sr"] = self.inc.past_aggr_sr.copy()
 
+        # Check for NA/missing values
+        nas = self.inc.past_aggr_sr.isna()
+        if nas.any():
+            self.logger.warn(
+                f"There are {nas.sum()} missing values in forecast region-of-interest. "
+                f"\nDates: {nas[nas].index.map(lambda x: x.strftime('%Y-%m-%d')).to_list()}."
+                f"\nHandled with method: fill with zeros."
+            )
+            self.inc.past_aggr_sr = self.inc.past_aggr_sr.fillna(0)
+
         # Denoise
         self.denoise_and_fit(which="aggr")
         # self.extra["past_float_sr"] = self.inc.past_aggr_sr.copy()
