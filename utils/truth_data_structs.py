@@ -22,7 +22,6 @@ class FluWeeklyTruthData:
     - location  (FIPS code or US)
     - location_name  (Name of location)
     - value  (incidence of hospitalizations)
-
     """
 
     raw_data: pd.DataFrame

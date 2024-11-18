@@ -5,4 +5,5 @@ conda activate rtrend_dev  # Dev environment for the Rtrend library
 #PATH="$PATH:$PWD/src_experimental:$PWD/src_operational"
 
 PYTHONPATH="$PYTHONPATH:$PWD"
+PYTHONPATH="$PYTHONPATH:$PWD/../../Rtrend_project"
 

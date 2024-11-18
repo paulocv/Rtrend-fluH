@@ -17,7 +17,7 @@ import yaml
 
 from rtrend_forecast.reporting import (
     get_rtrend_logger,
-    get_main_exectime_tracker,
+    get_main_exectime_tracker, SUCCESS,
 )
 from rtrend_forecast.structs import RtData, get_tg_object, IncidenceData
 from rtrend_forecast.utils import map_parallel_or_sequential
@@ -32,6 +32,7 @@ from utils.forecast_operators_flusight_2024 import (
     # WEEKLEN,
     FluSight2024ForecastOperator,
 )
+
 from rtrend_forecast.visualization import (
     rotate_ax_labels,
     make_axes_seq,
@@ -153,12 +154,12 @@ class Params:
     call_time: datetime.datetime  # Program call time
     now: pd.Timestamp  # Time regarded as "now" for FluSight submission
 
-    general: dict
-    preprocessing: dict
-    rt_estimation: dict
-    rt_synthesis: dict
+    general:            dict
+    preprocessing:      dict
+    rt_estimation:      dict
+    rt_synthesis:       dict
     inc_reconstruction: dict
-    postprocessing: dict
+    postprocessing:     dict
 
     # Program parameters
     filt_col_name: str
@@ -411,7 +412,7 @@ def run_forecasts_once(params: Params, data: Data):
     # ----------------------
     # --- Create sequence of selected state names
     data.use_state_names = make_state_index(
-        params.general, data.all_state_names)
+        params.general, data.truth.all_state_names)
 
     # --- Truth data
     # truth_df = load_truth_cdc_simple(params.general["hosp_data_path"])
@@ -503,6 +504,8 @@ def run_forecasts_once(params: Params, data: Data):
         lambda fop: fop.success
     )
 
+    _LOGGER.log(SUCCESS, "Forecasts concluded for all states.")
+
     #
 
     # ----------------------------------------------
@@ -512,6 +515,7 @@ def run_forecasts_once(params: Params, data: Data):
 
     results = list()
     for _state_name, _fop in fop_sr.items():
+        _fop: FluSight2024ForecastOperator
         last_observed_date = _fop.raw_incid_sr.index.max()
 
         # Calculate rate changes
@@ -520,7 +524,8 @@ def run_forecasts_once(params: Params, data: Data):
             count_rates=data.count_rates.loc[_state_name],
             dates=data.dates,
             # day_pres=data.day_pres,
-            last_observed_date=last_observed_date
+            last_observed_date=last_observed_date,
+            thresholds=_fop.op.get("categorical_thresholds", None)
         )
 
         results.append(df)
@@ -612,6 +617,7 @@ def calculate_for_usa(params: Params, data: Data):
         dates=data.dates,
         # day_pres=data.day_pres,
         last_observed_date=last_observed_date,
+        thresholds=params.postprocessing.get("categorical_thresholds", None)
     )
     # Prepare the df to be "appended" to the other states df
     df.columns.name = "horizon"
@@ -812,6 +818,11 @@ def export_metadata(path, params: Params, data: Data):
     out_dict["num_states"] = len(data.use_state_names)
     out_dict["num_all_states"] = len(data.all_state_names)
     out_dict["num_valid_forecasts"] = int(data.fop_sr_valid_mask.sum())
+
+    # Export synthesis method used for each location
+    out_dict["synth_method_used"] = {
+        fop.state_name: fop.sp["synth_method"] for fop in data.fop_sr
+    }
 
     out_dict["ref_date"] = data.dates.ref.date()
     out_dict["due_date"] = data.dates.due.isoformat()
