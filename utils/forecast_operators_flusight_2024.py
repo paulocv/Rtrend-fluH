@@ -97,6 +97,7 @@ class FluSight2024ForecastOperator(ForecastOperator):
 
         rounded = scaled.round()
         self.extra["past_scaled_int_sr"] = rounded
+        self.inc.past_gran_sr = rounded  # This makes the scaled series to be used through the rest of the forecast
 
         # Execution
         # ---------
@@ -161,6 +162,9 @@ class FluSight2024ForecastOperator(ForecastOperator):
         # Call the combined synthesis/reconstruction method.
         self.synthesize_tg()
         self.synthesize_and_reconstruct()
+
+        # --- Scale back down the incidence to rates
+        self.inc.fore_gran_df /= self.ep["scale_factor"]
 
         # --- Save the future R(t) estimation stats
         self.extra["rt_fore_median"] = self.rt_fore.get_median_pd()
