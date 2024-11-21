@@ -247,6 +247,18 @@ if __name__ == "__main__":
         )
 
         parser.add_argument(
+            "--preliminary",
+            type=bool,
+            help="Whether to use the preliminary NHSN data instead of the "
+                 "consolidated one. The preliminary data is released on"
+                 "the Wednsesday before the conosolidate data. While "
+                 "incomplete, it provides earlier access to the latest "
+                 "week data.",
+            default=True,
+            action=argparse.BooleanOptionalAction,
+        )
+
+        parser.add_argument(
             "--locations-file",
             type=Path,
             help="Path to the input locations file, containing information"
@@ -300,8 +312,15 @@ if __name__ == "__main__":
     def main():
         args = parse_args()
 
+        if args.preliminary:
+            url = "https://data.cdc.gov/resource/mpgq-jmmr.json"
+        else:
+            url = "https://data.cdc.gov/resource/ua7e-t2fy.json"
+
         # nhsn_df = fetch_nhsn_hosp_data(entry_limit=100)  # Lightweight fetch, for debugging
-        nhsn_df = fetch_nhsn_hosp_data(entry_limit=args.entry_limit)
+        nhsn_df = fetch_nhsn_hosp_data(
+            entry_limit=args.entry_limit, request_url=url
+        )
 
         if args.export_nhsn:
             fpath: Path = args.nhsn_file
