@@ -134,7 +134,7 @@ class FluSightGeneralOutputs:
 
 class FluSight2023Fore:
     """Data bunch to hold raw and preprocessed data from a FluSight
-    forecast hubverse file for the 2023-2024 season
+    forecast hubverse file for the 2023-2024 and 2024-2025 seasons
     (single reference date).
     """
     raw_df: pd.DataFrame
@@ -170,6 +170,7 @@ class FluSight2023Fore:
         # Make a table of quantile forecasts
         df = df["value"].unstack(level="output_type_id")
         df.columns.name = "quantile"
+        df.columns = df.columns.astype(float)
 
         self.quantiles_df = df
 

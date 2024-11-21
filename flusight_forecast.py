@@ -398,6 +398,216 @@ def apply_forecast_exceptions(
 ):
     """Handle exceptional conditions by changing forecast parameters."""
 
+    # # ALL STATES
+    # fop.raw_incid_sr[:] += 2
+
+    # State-specific drift coefficients
+    # ---------
+    if fop.state_name == "Alabama":        fop.sp["drift_coef"] *= 1.5
+    if fop.state_name == "Alaska":         fop.sp["drift_coef"] *= 4
+    if fop.state_name == "Arizona":        fop.sp["drift_coef"] *= 3.0
+    if fop.state_name == "California":       fop.sp["drift_coef"] *= 2.5
+    if fop.state_name == "Delaware":       fop.sp["drift_coef"] *= 5.0
+    if fop.state_name == "District of Columbia":  fop.sp["drift_coef"] *= 3.0
+    if fop.state_name == "Florida":        fop.sp["drift_coef"] *= 5.0
+    if fop.state_name == "Hawaii":         fop.sp["drift_coef"] *= 7.0
+    if fop.state_name == "Kansas":         fop.sp["drift_coef"] *= 1.5
+    if fop.state_name == "Louisiana":         fop.sp["drift_coef"] *= 1.0
+    if fop.state_name == "Maine":         fop.sp["drift_coef"] *= 9.0
+    if fop.state_name == "Michigan":         fop.sp["drift_coef"] *= 3.0
+    if fop.state_name == "Minnesota":         fop.sp["drift_coef"] *= 4.
+    if fop.state_name == "Mississippi":         fop.sp["drift_coef"] *= 2.5
+    if fop.state_name == "Nevada":         fop.sp["drift_coef"] *= 1.7
+    if fop.state_name == "New Hampshire":         fop.sp["drift_coef"] *= 3.0
+    if fop.state_name == "New York":         fop.sp["drift_coef"] *= 2.5
+    if fop.state_name == "North Carolina":         fop.sp["drift_coef"] *= 2.5
+    if fop.state_name == "North Dakota":         fop.sp["drift_coef"] *= 1.0
+    if fop.state_name == "Tennessee":         fop.sp["drift_coef"] *= 4.0
+    if fop.state_name == "Utah":         fop.sp["drift_coef"] *= 2.5
+    if fop.state_name == "Vermont":      fop.sp["drift_coef"] *= 5.0
+    if fop.state_name == "West Virginia":      fop.sp["drift_coef"] *= 12.0
+    if fop.state_name == "Wyoming":      fop.sp["drift_coef"] *= 5.0
+    if fop.state_name == "Puerto Rico":      fop.sp["drift_coef"] *= 4.0
+
+    # Reporting delay corrections
+    # -----
+
+    # Other changes
+    # -----
+    if fop.state_name == "Arizona":
+        fop.ep["scale_ref_inc"] *= 1.5
+    if fop.state_name == "Arkansas":
+        fop.ep["scale_ref_inc"] *= 0.5
+    if fop.state_name == "California":
+        # fop.sp["bias"] = 0.007
+        fop.sp["initial_bias"] = 0.20
+        fop.ep["scale_ref_inc"] *= 1.5
+        pass
+    if fop.state_name == "Delaware":
+        fop.raw_incid_sr[-4:] += 2
+    if fop.state_name == "District of Columbia":
+        fop.raw_incid_sr[-2:] += 1
+    if fop.state_name == "Florida":
+        fop.raw_incid_sr[-2:] += 50
+    if fop.state_name == "Georgia":
+        fop.raw_incid_sr[-4:] += 5
+        fop.ep["scale_ref_inc"] *= 0.5
+
+    if fop.state_name == "Connecticut":
+        # fop.sp["bias"] = 0.007
+        fop.sp["initial_bias"] = 0.20
+        # fop.ep["scale_ref_inc"] *= 1.5
+
+    if fop.state_name == "Hawaii":
+        fop.ep["scale_ref_inc"] *= 0.6
+        fop.sp["initial_bias"] = 0.0
+
+    if fop.state_name == "Illinois":
+        fop.ep["scale_ref_inc"] *= 0.6
+        # fop.sp["initial_bias"] = 0.0
+
+    if fop.state_name == "Indiana":
+        fop.ep["scale_ref_inc"] *= 0.6
+        # fop.sp["initial_bias"] = 0.0
+
+    if fop.state_name == "Iowa":
+        fop.ep["scale_ref_inc"] *= 0.3
+        # fop.sp["initial_bias"] = 0.0
+
+    if fop.state_name == "Kansas":
+        fop.pp["denoise_cutoff"] = 0.50
+        fop.ep["scale_ref_inc"] *= 0.6
+        # fop.sp["initial_bias"] = 0.05
+
+    if fop.state_name == "Kentucky":
+        # fop.pp["denoise_cutoff"] = 0.50
+        fop.ep["scale_ref_inc"] *= 0.6
+        # fop.sp["initial_bias"] = 0.05
+
+    if fop.state_name == "Louisiana":
+        fop.ep["scale_ref_inc"] *= 1.0
+        fop.pp["denoise_cutoff"] = 0.50
+        fop.sp["initial_bias"] = 0.00
+
+    if fop.state_name == "Maine":
+        fop.sp["synth_method"] = "rnd_normal"
+
+        fop.raw_incid_sr[-3:] += 1
+        # fop.sp["initial_bias"] = -0.05
+        fop.ep["scale_ref_inc"] *= 0.1
+        # fop.sp["bias"] = 0.005
+
+    if fop.state_name == "Maryland":
+        fop.ep["scale_ref_inc"] *= 0.6
+
+    if fop.state_name == "Massachusetts":
+        fop.raw_incid_sr[-3:] += 10
+
+    if fop.state_name == "Michigan":
+        fop.sp["initial_bias"] = 0
+        fop.pp["denoise_cutoff"] = 0.4
+        fop.ep["scale_ref_inc"] *= 0.8
+
+    if fop.state_name == "Mississippi":
+        pass
+        # fop.sp["initial_bias"] = 0
+    if fop.state_name == "Missouri":
+        fop.ep["scale_ref_inc"] *= 0.6
+
+    if fop.state_name == "Montana":
+        fop.raw_incid_sr[-3:] += 1
+        fop.sp["synth_method"] = "rnd_normal"
+        # fop.sp["sigma"] *= 0.5
+
+    if fop.state_name == "Nevada":
+        fop.pp["denoise_cutoff"] = 0.4
+        fop.ep["scale_ref_inc"] *= 0.6
+        fop.sp["initial_bias"] = 0
+
+    if fop.state_name == "Nebraska":
+        fop.ep["scale_ref_inc"] *= 0.6
+
+    if fop.state_name == "New Hampshire":
+        fop.ep["scale_ref_inc"] *= 0.4
+        fop.sp["initial_bias"] = 0.05
+
+    if fop.state_name == "New Jersey":
+        fop.ep["scale_ref_inc"] *= 0.5
+        # fop.sp["initial_bias"] = 0.05
+
+    if fop.state_name == "New Mexico":
+        fop.ep["scale_ref_inc"] *= 0.6
+        # fop.sp["initial_bias"] = 0.05
+
+    if fop.state_name == "New York":
+        fop.ep["scale_ref_inc"] *= 0.4
+
+    if fop.state_name == "North Carolina":
+        fop.pp["denoise_cutoff"] = 0.45
+
+    if fop.state_name == "North Dakota":
+        fop.sp["synth_method"] = "rnd_normal"
+        fop.sp["center"] = 1.1
+        fop.sp["sigma"] = 0.15
+
+        fop.raw_incid_sr[-3:] += 1
+    if fop.state_name == "Ohio":
+        fop.sp["synth_method"] = "rnd_normal"
+        fop.sp["center"] = 1.0
+        fop.sp["sigma"] = 0.05
+    if fop.state_name == "Oklahoma":
+        fop.ep["scale_ref_inc"] *= 0.4
+    if fop.state_name == "Oregon":
+        fop.ep["scale_ref_inc"] *= 0.2
+        fop.sp["initial_bias"] = 0
+
+    if fop.state_name == "Pennsylvania":
+        fop.pp["denoise_cutoff"] = 0.50
+        fop.sp["synth_method"] = "rnd_normal"
+        fop.sp["center"] = 1.0
+        fop.sp["sigma"] = 0.05
+    if fop.state_name == "Rhode Island":
+        fop.raw_incid_sr[-1:] += 2
+        fop.sp["synth_method"] = "rnd_normal"
+        fop.sp["center"] = 1.0
+        fop.sp["sigma"] = 0.20
+        # fop.ep["scale_ref_inc"] *= 0.4
+    if fop.state_name == "South Carolina":
+        fop.ep["scale_ref_inc"] *= 0.3
+    if fop.state_name == "South Dakota":
+        fop.raw_incid_sr[-2:] += 2
+        fop.sp["synth_method"] = "rnd_normal"
+        fop.sp["center"] = 1.01
+        fop.sp["sigma"] = 0.20
+    if fop.state_name == "Tennessee":
+        fop.ep["scale_ref_inc"] *= 0.6
+    if fop.state_name == "Utah":
+        fop.sp["initial_bias"] = 0
+        # fop.ep["scale_ref_inc"] *= 0.6
+    if fop.state_name == "Vermont":
+        fop.raw_incid_sr[-2:] += 1
+        fop.ep["scale_ref_inc"] *= 0.25
+
+    if fop.state_name == "Virginia":
+        # fop.raw_incid_sr[-2:] += 1
+        fop.sp["bias"] = 0.005
+
+    if fop.state_name == "West Virginia":
+        # fop.raw_incid_sr[-2:] += 1
+        fop.ep["scale_ref_inc"] *= 0.10
+    if fop.state_name == "Wisconsin":
+        # fop.raw_incid_sr[-2:] += 1
+        fop.ep["scale_ref_inc"] *= 0.25
+
+    if fop.state_name == "Wyoming":
+        # fop.raw_incid_sr[-2:] += 1
+        fop.ep["scale_ref_inc"] *= 0.8
+
+    if fop.state_name == "Puerto Rico":
+        # fop.raw_incid_sr[-2:] += 1
+        fop.pp["denoise_cutoff"] = 0.40
+        fop.ep["scale_ref_inc"] *= 0.5
+        fop.sp["initial_bias"] = -0.11
 
 
 # -------------------------------------------------------------------
@@ -705,7 +915,7 @@ def postprocess_all(params: Params, data: Data):
         d["output_type"] = np.repeat("quantile", size)
         d["target"] = np.repeat("wk inc flu hosp", size)
 
-        d["value"] = stack.values
+        d["value"] = stack.values.round()
 
         return pd.DataFrame(d)
 
@@ -722,7 +932,14 @@ def postprocess_all(params: Params, data: Data):
     )
 
     # Concatenate into a single dataframe for the quantile forecast
-    flusight_quantiles_df = pd.concat(concat_df_list)
+    df = pd.concat(concat_df_list)
+
+    # --- Select horizons
+    use_horizons = params.general.get("export_horizons_quantiles", None)
+    if use_horizons:
+        flusight_quantiles_df = df.loc[df["horizon"].isin(use_horizons)]
+    else:
+        flusight_quantiles_df = df
 
     # ------------------------------------------------------------
     # FluSight export format – RATE CHANGE (CATEGORICAL) forecasts
@@ -748,6 +965,11 @@ def postprocess_all(params: Params, data: Data):
         lambda i: rate_change_i_to_name[i],
     )
 
+    # --- Select horizons
+    use_horizons = params.general.get("export_horizons_categorical", None)
+    if use_horizons:
+        df = df.loc[df["horizon"].isin(use_horizons)]
+
     flusight_rate_df = df
 
     # ------------------------------------------------------------
@@ -766,12 +988,7 @@ def postprocess_all(params: Params, data: Data):
          "location", "output_type", "output_type_id", "value"]
     ]
 
-    # Select only desired horizons to export
-    use_horizons = params.general.get("export_horizons", None)
-    if use_horizons:
-        data.flusight_df = df.loc[df["horizon"].isin(use_horizons)]
-    else:
-        data.flusight_df = df
+    data.flusight_df = df
 
     print("Flusight exportable dataframe:")
     print(data.flusight_df)

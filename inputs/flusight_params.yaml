@@ -10,7 +10,8 @@ general:
   season_start: 2024-09-01   # Date from which cumulatives are calculated.
   due_example: 2023-10-04 23:00:00  # (WED 11PM) Example of due date/time
   ref_example: 2023-10-07           # (SAT) Example of reference date
-  export_horizons: [0, 1, 2, 3]  # Only export these horizon numbers to the FluSight file. Blank to export all.
+  export_horizons_quantiles: [0, 1, 2, 3]  # Only export these horizon numbers to the FluSight file (quantile forecasts). Blank to export all.
+  export_horizons_categorical: [0, 1, 2, 3]  # Only export these horizon numbers to the FluSight file (rate change forecasts). Blank to export all.
 
   # Paths
   hosp_data_path: "hosp_data/truth_latest.csv"
@@ -37,7 +38,7 @@ preprocessing:
   denoise_model: normal  # normal, normal_periodic, gamma_periodic
   denoise_method: lowpass  # lowpass, polyfit, rollav/rolling_average
   # For the noise object
-  denoise_coef: 1.0  # Noise coefficient
+  denoise_coef: 0.0  # Noise coefficient
   denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
 
   # For lowpass/polyfit method
@@ -53,13 +54,13 @@ rt_estimation:
 #  method: mcmc  # Only mcmc for now
   engine: gamma     # c, numba, gamma
   seed: 10
-  roi_len: 60  # In granular periods. Must be bigger than nperiods_past + i_t0. Blank to use main_roi (in weeks).
+  roi_len: 80  # In granular periods. Must be bigger than nperiods_past + i_t0. Blank to use main_roi (in weeks).
 
   # Data scaling
   scale_method: data_pwr  # const, data_pwr, pop_pwr?
   scale_roi_len: 60   # ["data_pwr" method] – How many granular periods of past incidence to consider for the scaling factor.
   scale_power: 0.95   # Pwr method: scaled = (ref / avg) ** power. Values lower than 1 add uncertainty to lower incidence and remove from higher.
-  scale_ref_inc: 400  # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
+  scale_ref_inc: 100  # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
   scale_ref_pop: 12000  # Reference population for scaling ["pop_pwr" method]
   # scale_factor: 1.2  # ["const" method; overridden by other methods]
 
@@ -67,26 +68,26 @@ rt_estimation:
   nsim: 14000
   ntrans: 4000  # Number of transients (from the total nsim, must be smaller).
   sigma: 0.05
-  i_t0: 30  # First time point of the MCMC ROI to calculate R(t) for. Ideally should match tg_max.
+  i_t0: 50  # First time point of the MCMC ROI to calculate R(t) for. Ideally should be equals to or greater than tg_max.
 
 # --- R(t) SYNTHESIS
 rt_synthesis: 
-  synth_method: drift_pop  # drift_pop  # static_ramp, dynamic_ramp, rnd_normal, default, drift_pop, drift_const
+  synth_method: drift_const  # drift_pop, drift_const  # static_ramp, dynamic_ramp, rnd_normal, default, drift_pop, drift_const
   tg_synth_method: same  # Generation time assumed as constant
   seed: 10
 
   # Common parameters
   q_low: 0.01    # Sorted ensemble: low quantile
   q_hig: 0.99    # Sorted ensemble: high quantile
-  nperiods_past: 10  # Number of days (backwards) to consider in synthesis. Shorter than mcmc roi_len
+  nperiods_past: 7  # Number of days (backwards) to consider in synthesis. Shorter than mcmc roi_len
   r_max: 6.0     # [UPDATE: rejects any estimate ensemble that reaches this threshold] Clamp up to these R values (for the average)
 
   # Drift synth-reconstruction parameters
-  drift_pop_coef: 6.0e+2  #20.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t). Higher = more drift.
-#  drift_coef: 1.0e-3  # Pure drift coefficient. Drift = coef * c(t). Overriden by other methods.
+#  drift_pop_coef: 50  #20.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t). Higher = more drift.
+  drift_coef: 0.30e-5  # Pure drift coefficient. Drift = coef * c(t). Overriden unless using synth_method = drift_const.
   rw_coef: 0.0
-  bias: 0.001  # 0.001  # Bias added to the exponent at each R(t) drift step
-  initial_bias: -0.06  # Bias added at the first R(t) drift step
+  bias: 0.000  # 0.001  # Bias added to the exponent at each R(t) drift step
+  initial_bias: 0.1  # Bias added at the first R(t) drift step
 
   # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
   k_start: 0.95    # Ramp method: starting coefficient
@@ -101,8 +102,8 @@ rt_synthesis:
   transform: "quadratic"  # "linear", "quadratic"
 
   # Normal distribution synthesis
-  center: 1.01
-  sigma: 0.05
+  center: 1.15
+  sigma: 0.15
   nsamples: 500
 
 # --- C(t) RECONSTRUCTION

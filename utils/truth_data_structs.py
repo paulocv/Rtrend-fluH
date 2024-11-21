@@ -32,7 +32,7 @@ class FluWeeklyTruthData:
             self, truth_data,
             all_state_names=None,
             state_name_to_id=None,
-            pop_data_path="population_data/locations.csv",
+            pop_data_path="aux_data/locations.csv",
     ):
         """
         Parameters
@@ -110,7 +110,7 @@ class FluDailyTruthData:
             self, truth_data,
             all_state_names=None,
             state_name_to_id=None,
-            pop_data_path="population_data/locations.csv",
+            pop_data_path="aux_data/locations.csv",
     ):
         """
         Parameters

@@ -18,8 +18,7 @@ from utils.flusight_tools import (
     FluSightGeneralOutputs,
     FluSightDates,
 )
-from utils.truth_data_structs import FluDailyTruthData
-
+from utils.truth_data_structs import FluDailyTruthData, FluWeeklyTruthData
 
 _LOGGER = get_rtrend_logger().getChild(__name__)
 
@@ -27,7 +26,7 @@ _LOGGER = get_rtrend_logger().getChild(__name__)
 DEFAULT_PARAMS = {
     "flusight_file": "forecast_out/latest.csv",
     "fore_outputs_dir": "outputs/latest/",
-    "truth_file": "hosp_data/truth_daily_latest.csv",
+    "truth_file": "hosp_data/truth_latest.csv",
 }
 
 
@@ -122,7 +121,7 @@ def import_data(params) -> Data:
     # Import forecast and truth data
     data.fsobj = FluSight2023Fore(params.flusight_file)
     data.gfobj = FluSightGeneralOutputs(params.fore_outputs_dir)
-    data.truth = FluDailyTruthData(params.truth_file)
+    data.truth = FluWeeklyTruthData(params.truth_file)
 
     # Construct object that holds reference, deadline and now dates
     data.dates = FluSightDates(params.now, )  # TODO: get from meta?
