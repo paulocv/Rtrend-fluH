@@ -1,11 +1,9 @@
 """
 Run routine procedures to set up the workspace for a new week of the
 FluSight forecast.
-Taylored for the season: 2023/2024.
+Adapted for the 2024-2025 season..
 
-- [ ] Backup the truth files as it is downloaded!
-- [ ] Check conda environment?
-- [ ] Run the Rscript to get the truth file.
+
 """
 print("Importing libraries...")
 import argparse
@@ -18,17 +16,19 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
+from utils.fetch_data_utils import make_target_data_from_nhsn
 from rtrend_forecast.reporting import get_rtrend_logger, SUCCESS
 
 _LOGGER = get_rtrend_logger().getChild(__name__)
 
 
 DEFAULT_PARAMS = dict(
-    truth_file=Path("hosp_data/truth_daily_latest.csv"),
-    truth_file_weekly=Path("hosp_data/truth_weekly_latest.csv"),
+    truth_file=Path("hosp_data/truth_latest.csv"),
+    # truth_file_weekly=Path("hosp_data/truth_weekly_latest.csv"),
     fetch_truth=True,
     backup_truth=True,
-    backup_dir=Path("hosp_data/past_BKP"),
+    backup_dir=Path("hosp_data/season_2024-2025"),
+    nhsn_file="https://raw.githubusercontent.com/paulocv/respiratory_archive/refs/heads/main/datasets/nhsn_weekly_jurisdiction/nhsn_latest.csv",
 )
 
 
@@ -66,6 +66,7 @@ class Params:
     # ...
     truth_file: Path
     truth_file_weekly: Path
+    nhsn_file: Path
     now: pd.Timestamp
     fetch_truth: bool
     backup_truth: bool
@@ -96,33 +97,22 @@ def parse_args():
         # epilog="[[TEXT DISPLAYED AFTER ARGUMENTS DESCRIPTION]]",
     )
 
-    # # --- Positional paths
-    # parser.add_argument(
-    #     "input_file", type=Path,
-    #     help="Path to the file with input parameters."
-    # )
-    # parser.add_argument(
-    #     "output_dir", type=Path,
-    #     help="Path to the output directory, where all "
-    #          "output files are stored."
-    # )
-
     # --- Optional flags
     parser.add_argument(
         "-t", "--truth-file",
-        help="(Optional) path to the daily truth data file. "
+        help="(Optional) path to the truth data file (weekly data). "
              f"Default is {DEFAULT_PARAMS['truth_file']}.",
         default=DEFAULT_PARAMS['truth_file'],
         type=Path,
     )
 
-    parser.add_argument(
-        "--truth-file-weekly",
-        help="(Optional) path to the weekly truth data file. "
-             f"Default is {DEFAULT_PARAMS['truth_file_weekly']}.",
-        default=DEFAULT_PARAMS['truth_file_weekly'],
-        type=Path,
-    )
+    # parser.add_argument(
+    #     "--truth-file-weekly",
+    #     help="(Optional) path to the weekly truth data file. "
+    #          f"Default is {DEFAULT_PARAMS['truth_file_weekly']}.",
+    #     default=DEFAULT_PARAMS['truth_file_weekly'],
+    #     type=Path,
+    # )
 
     parser.add_argument(
         "--now", type=pd.Timestamp,
@@ -176,31 +166,37 @@ def build_params(args: CLArgs):
 #
 
 
-def fetch_and_backup_truth_data(params, data):
+def fetch_and_backup_truth_data(params: Params, data: Data):
     """"""
     _LOGGER.debug("Entered fetch_and_backup_truth_data")
 
-    # --- Fetching data
+    # --- Fetching data, saving to latest file
     if params.fetch_truth:
-        # -()- Use Rscript program – REQUIRES MULTIPLE R LIBRARIES
-        #         (covidcast, rsocrata, lubridate)
-        cmd = (f"Rscript get_truth.R "
-               f"--truth-file {params.truth_file} "
-               f"--truth-file-weekly {params.truth_file_weekly}")
-        print(cmd)
-        _LOGGER.info("Fetching the truth files (using Rscript)...")
-        try:
-            res = subprocess.run(cmd.split(), capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            _LOGGER.critical("Error running the R script. Message:")
-            print(e)
-            sys.exit(1)
 
-        print(res.stdout)
-        _LOGGER.log(SUCCESS, "Fetching complete.")
+        nhsn_df = pd.read_csv(params.nhsn_file, parse_dates=["weekendingdate"])
+        truth_df = make_target_data_from_nhsn(nhsn_df, "flu")
 
-        # -()- Alternative: use Python's socrata interface, or adapt
-        #      the get-truth-data.py from Covid-19 forecast hub.
+        truth_df.to_csv(params.truth_file, index=False)
+
+        # # -()- Use Rscript program – REQUIRES MULTIPLE R LIBRARIES
+        # #         (covidcast, rsocrata, lubridate)
+        # cmd = (f"Rscript get_truth.R "
+        #        f"--truth-file {params.truth_file} "
+        #        f"--truth-file-weekly {params.truth_file_weekly}")
+        # print(cmd)
+        # _LOGGER.info("Fetching the truth files (using Rscript)...")
+        # try:
+        #     res = subprocess.run(cmd.split(), capture_output=True, check=True)
+        # except subprocess.CalledProcessError as e:
+        #     _LOGGER.critical("Error running the R script. Message:")
+        #     print(e)
+        #     sys.exit(1)
+        #
+        # print(res.stdout)
+        # _LOGGER.log(SUCCESS, "Fetching complete.")
+        #
+        # # -()- Alternative: use Python's socrata interface, or adapt
+        # #      the get-truth-data.py from Covid-19 forecast hub.
 
     else:  # Fetch truth skipped
         _LOGGER.warn(
@@ -213,7 +209,13 @@ def fetch_and_backup_truth_data(params, data):
         # --- Manipulates the daily truth file name to make the backup.
         basename = params.truth_file.name
         name, ext = basename.split(".")
-        bkp_basename = f"{name}_{params.now.date().isoformat()}.{ext}"
+        if "latest" in name:
+            # Replace "latest" with the current date
+            bkp_basename = name.replace("latest", params.now.date().isoformat())
+            bkp_basename = f"{bkp_basename}.{ext}"
+        else:
+            # Just append the date
+            bkp_basename = f"{name}_{params.now.date().isoformat()}.{ext}"
         bkp_path = params.backup_dir.joinpath(bkp_basename)
 
         # --- Make dir and copy file to it
