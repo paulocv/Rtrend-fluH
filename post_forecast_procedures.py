@@ -27,6 +27,7 @@ DEFAULT_PARAMS = {
     "flusight_file": "forecast_out/latest.csv",
     "fore_outputs_dir": "outputs/latest/",
     "truth_file": "hosp_data/truth_latest.csv",
+    "rename": True,
 }
 
 
@@ -89,7 +90,8 @@ def parse_args():
         "-r", "--rename",
         help="If specified, backups the FluSight forecast file and the "
              "complete output folder using the reference date.",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_PARAMS["rename"],
     )
 
     parser.add_argument(
