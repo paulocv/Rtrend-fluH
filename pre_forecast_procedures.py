@@ -137,7 +137,6 @@ def parse_args():
     )
 
     return parser.parse_args()  # When all arguments are defined here
-    # return parser.parse_known_args()  # If there are extra arguments
 
 
 def build_params(args: CLArgs):
@@ -174,29 +173,10 @@ def fetch_and_backup_truth_data(params: Params, data: Data):
     if params.fetch_truth:
 
         nhsn_df = pd.read_csv(params.nhsn_file, parse_dates=["weekendingdate"])
+        print(f"Fetched NHSN archive data from: {params.nhsn_file}")
         truth_df = make_target_data_from_nhsn(nhsn_df, "flu")
 
         truth_df.to_csv(params.truth_file, index=False)
-
-        # # -()- Use Rscript program – REQUIRES MULTIPLE R LIBRARIES
-        # #         (covidcast, rsocrata, lubridate)
-        # cmd = (f"Rscript get_truth.R "
-        #        f"--truth-file {params.truth_file} "
-        #        f"--truth-file-weekly {params.truth_file_weekly}")
-        # print(cmd)
-        # _LOGGER.info("Fetching the truth files (using Rscript)...")
-        # try:
-        #     res = subprocess.run(cmd.split(), capture_output=True, check=True)
-        # except subprocess.CalledProcessError as e:
-        #     _LOGGER.critical("Error running the R script. Message:")
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # print(res.stdout)
-        # _LOGGER.log(SUCCESS, "Fetching complete.")
-        #
-        # # -()- Alternative: use Python's socrata interface, or adapt
-        # #      the get-truth-data.py from Covid-19 forecast hub.
 
     else:  # Fetch truth skipped
         _LOGGER.warn(
@@ -224,8 +204,6 @@ def fetch_and_backup_truth_data(params: Params, data: Data):
         _LOGGER.log(
             SUCCESS, f"Copied the truth daily file to '{bkp_path}'"
         )
-        # _LOGGER.error(ext)
-        # shutil.copy2()
     else:
         _LOGGER.warn(
             "--no-backup-truth: no copies of the truth files will be "
