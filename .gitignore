@@ -203,6 +203,8 @@ rsconnect/
 # Custom gitignore patterns
 # -------------------------
 
+.DS_Store
+*/.DS_Store
 
 # ----------- New template (ignore only)
 
