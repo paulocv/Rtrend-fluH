@@ -2,7 +2,7 @@
 A simple script to save the relevant jupyter notebooks into a zip file
 that can be commited to the repository.
 
-The program chooses among an "include" and a "exclude" list of Notebooks
+The program chooses among an "include" and an "exclude" list of Notebooks
 
 - Output file: ibes-usa/py_src/jupyter_notebooks.zip
 """
@@ -18,7 +18,8 @@ include_notebooks = [
 ]
 
 exclude_notebooks = [
-   "jupyter_notebooks/anything_fore.ipynb",
+    "jupyter_notebooks/anything_fore.ipynb",
+    "jupyter_notebooks/reporting_delay_rehearsals.ipynb",
 ]
 
 
