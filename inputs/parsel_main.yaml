@@ -3,6 +3,7 @@
 general:
   nperiods_main_roi: 20  # In aggregated periods. Only region used by the forecast.
 
+#  day_pres_id: -1
   nperiods_fore: 4  # In aggregated periods
   date_first: 2022-10-29  # CDC: 2022-10-22. Season w/ margin: 2022-07-25
   date_last: 2023-05-13   # CDC: 2023-05-13
@@ -46,7 +47,7 @@ preprocessing:
   denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
 
   # For lowpass/polyfit method
-  denoise_cutoff: 0.10
+  denoise_cutoff: 0.30
   denoise_order: 2
   denoise_seed: 10  
 
@@ -89,9 +90,10 @@ rt_synthesis:
 
   # Drift synth-reconstruction parameters
   drift_pop_coef: 15.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t) 
-#  drift_coef: 1.0e-3  # Pure drift coefficient. Drift = coef * c(t). Overriden by other methods.
+  drift_coef: 1.0e-3  # Pure drift coefficient. Drift = coef * c(t). Overriden by other methods.
   rw_coef: 0.0
-  bias: 0.10  # Previous: 0.06
+  bias: 0.00  # Previous: 0.06
+  initial_bias: 0.00
 
   # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
   k_start: 0.95    # Ramp method: starting coefficient
