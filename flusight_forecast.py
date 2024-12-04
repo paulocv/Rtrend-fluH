@@ -65,9 +65,9 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
 
 DEFAULT_PARAMS_GENERAL = dict(  # Parameters from the `general` dict
     pop_data_path="population_data/locations.csv",
-    hosp_data_path="hosp_data/truth_daily_latest.csv",
+    hosp_data_path="hosp_data/truth_latest.csv",
     forecast_days_ahead=2,  # Forecast evaluation ahead of the day_pres
-
+    day_pres_id=-1,
     nsamples_to_us=1000,  # Number of trajectories
 )
 
@@ -217,7 +217,7 @@ class Data:
 # PROGRAM PROCEDURES
 # -------------------------------------------------------------------
 
-def parse_args():
+def parse_args(argv=None):
     """Interprets and stores the command line arguments."""
 
     parser = argparse.ArgumentParser(
@@ -282,7 +282,7 @@ def parse_args():
         default=True,
     )
 
-    return parser.parse_args()  # When all arguments are defined here
+    return parser.parse_args(argv)  # When all arguments are defined here
     # return parser.parse_known_args()  # If there are extra arguments
 
 
