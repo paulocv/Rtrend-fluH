@@ -79,7 +79,7 @@ class FluMainExperimentalOperator(ForecastOperator):
 
         # Denoise
         self.denoise_and_fit(which="aggr")
-        # self.extra["past_float_sr"] = self.inc.past_aggr_sr.copy()
+        self.extra["past_denoised_sr"] = self.inc.past_aggr_sr.copy()
 
         # Interpolate
         self.interpolate_to_granular()
@@ -87,7 +87,7 @@ class FluMainExperimentalOperator(ForecastOperator):
         # Fix negative artifacts
         self.remove_negative_incidence(
             warn=True, method=self.pp["negative_method"])
-        self.extra["past_denoised_sr"] = self.inc.past_gran_sr  # .copy()
+        self.extra["past_interpolated_sr"] = self.inc.past_gran_sr  # .copy()
 
         # --- Debriefing
         self.set_stage_next()
