@@ -1,7 +1,7 @@
 ---
 # Main input file used for the Influenza **model training**.
 general:
-  nperiods_main_roi: 20  # In aggregated periods. Only region used by the forecast.
+  nperiods_main_roi: 40  # In aggregated periods. Only region used by the forecast.
 
 #  day_pres_id: -1
   nperiods_fore: 4  # In aggregated periods
@@ -35,21 +35,23 @@ general:
 
   # --- Training and parameter selection
 
-
-
 # --- PREPROCESSING
 preprocessing:
 
   denoise_model: normal  # normal, normal_periodic, gamma_periodic
-  denoise_method: lowpass  # lowpass, polyfit, rollav/rolling_average
+  denoise_method: rollav  # lowpass, polyfit, rollav/rolling_average, lowess
   # For the noise object
   denoise_coef: 1.0  # Noise coefficient
   denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
+  denoise_seed: 10
 
-  # For lowpass/polyfit method
-  denoise_cutoff: 0.40
-  denoise_order: 2
-  denoise_seed: 10  
+  # For lowpass, polyfit, lowess method
+  denoise_cutoff: 0.30  # For lowpass
+  denoise_order: 2    # For lowpass
+  denoise_degree: 9   # For polyfit
+  denoise_frac: 0.15  # For lowess
+  denoise_window: 4   # For rollav (rolling_average)
+  denoise_center: true   # For rollav (rolling_average)
 
   # Negative artifacts
   negative_method: shift  # (clamp, shift) Method to deal with negative incidence values after filtering
