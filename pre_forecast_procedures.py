@@ -24,7 +24,6 @@ _LOGGER = get_rtrend_logger().getChild(__name__)
 
 DEFAULT_PARAMS = dict(
     truth_file=Path("hosp_data/truth_latest.csv"),
-    # truth_file_weekly=Path("hosp_data/truth_weekly_latest.csv"),
     fetch_truth=True,
     backup_truth=True,
     backup_dir=Path("hosp_data/season_2024-2025"),
@@ -48,8 +47,8 @@ def main():
 class CLArgs:
     """Command line arguments. This is only used for type hinting."""
     truth_file: Path
-    truth_file_weekly: Path
     now: pd.Timestamp
+    nhsn_file: Path
 
 
 class Params:
@@ -106,13 +105,12 @@ def parse_args():
         type=Path,
     )
 
-    # parser.add_argument(
-    #     "--truth-file-weekly",
-    #     help="(Optional) path to the weekly truth data file. "
-    #          f"Default is {DEFAULT_PARAMS['truth_file_weekly']}.",
-    #     default=DEFAULT_PARAMS['truth_file_weekly'],
-    #     type=Path,
-    # )
+    parser.add_argument(
+        "--nhsn-file",
+        help="(Optional) path to the nhsn data file. Default is "
+             f"{DEFAULT_PARAMS['nhsn_file']}.",
+        type=Path,
+    )
 
     parser.add_argument(
         "--now", type=pd.Timestamp,
