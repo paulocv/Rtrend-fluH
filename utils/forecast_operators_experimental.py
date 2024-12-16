@@ -18,11 +18,11 @@ WEEKLEN = 7  # USE THIS LENGTH OF THE WEEK for parsel project.
 
 class FluMainExperimentalOperator(ForecastOperator):
     """
-    This is the forecast operator for the 2024/2025 season of the CDC
-    FluSight forecast.
+    This is the maine experimental forecast operator.
+    It's not for operational use in forecasts. But it should be only
+    modified with "somewhat consolidated" experimental methods.
 
-    It is meant for operational use.
-    Experimental features should be tested in other forecast operators.
+    To test new concepts, please create new operators branching off this one.
     """
 
     is_aggr = True  # Refers to the INPUT DATA: it's aggregated (weekly) since Nov-2024
@@ -58,7 +58,7 @@ class FluMainExperimentalOperator(ForecastOperator):
         # Misc
         self.population = population  # Effective population size.
         self.state_name = state_name
-
+        
     def callback_preprocessing(self):
         """Either runs the preprocessing defined in the
         PreprocessOperator or loads buffered data to achieve the
@@ -192,6 +192,39 @@ class FluMainExperimentalOperator(ForecastOperator):
 
         # OBS: Categorical rate change is calculated in FluSight script
 
+        self.set_stage_next()
+
+    def dump_heavy_stuff(self):
+        """Manually discard structures that have high memory usage,
+        but are possibly not useful for the next stages.
+
+        OVERRIDES the base function by keeping weekly forecast
+        trajectories.
+        """
+        self.rt_past = None
+        self.rt_fore = None
+        self.inc.fore_gran_df = None
+        # self.inc.fore_agg_df = None
+
+        gc.collect()
+
+
+class FluEnsemblePreprocTestOperator(FluMainExperimentalOperator):
+    """
+
+    """
+
+    def callback_preprocessing(self):
+        """Either runs the preprocessing defined in the
+        PreprocessOperator or loads buffered data to achieve the
+        same internal state.
+        """
+        # Store raw series
+        self.extra["past_raw_sr"] = self.inc.past_aggr_sr.copy()
+
+        self.logger.warning("Hello! I need to be implemented")
+
+        # --- Debriefing
         self.set_stage_next()
 
     def dump_heavy_stuff(self):

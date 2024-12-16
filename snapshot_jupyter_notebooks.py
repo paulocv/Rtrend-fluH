@@ -19,8 +19,8 @@ include_notebooks = [
 
 exclude_notebooks = [
     "jupyter_notebooks/anything_fore.ipynb",
-    # "jupyter_notebooks/reporting_delay_rehearsals.ipynb",
-    # "jupyter_notebooks/reproduction_number_rehearsals.ipynb",
+    "jupyter_notebooks/reporting_delay_rehearsals.ipynb",
+    "jupyter_notebooks/reproduction_number_rehearsals.ipynb",
 ]
 
 
