@@ -104,6 +104,9 @@ class FluSightGeneralOutputs:
         self.rt_fore_df = self.import_rt_stats_file(
             self.forecast_dir.joinpath("rt_fore.csv")
         )
+        self.preproc_df = self.import_preproc_file(
+            self.forecast_dir.joinpath("preproc.csv")
+        )
 
     @staticmethod
     def import_quantile_forecasts(fname: Path):
@@ -116,6 +119,10 @@ class FluSightGeneralOutputs:
     @staticmethod
     def import_rt_stats_file(fname: Path):
         return pd.read_csv(fname, index_col=[0, 1])
+
+    @staticmethod
+    def import_preproc_file(fname: Path):
+        return pd.read_csv(fname, index_col=[0, 1], parse_dates=["date"])
 
     @staticmethod
     def import_metadata(fname: Path):

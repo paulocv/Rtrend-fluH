@@ -205,6 +205,7 @@ class Data:
     main_quantile_df: pd.DataFrame  # Forecast quantiles for plotting
     main_rt_past_df: pd.DataFrame
     main_rt_fore_df: pd.DataFrame
+    main_preproc_df: pd.DataFrame  # Some preprocessed data
 
 
 #
@@ -404,7 +405,9 @@ def apply_forecast_exceptions(
         fop.sp["drift_coef"] *= 4.5
 
     if fop.state_name == "Alaska":
-        fop.sp["drift_coef"] *= 4
+        fop.sp["drift_coef"] *= 7. / 1.0
+        fop.ep["scale_ref_inc"] *= 1.0
+        fop.sp["initial_bias"] -= 0.05
 
     if fop.state_name == "Arizona":
         fop.sp["drift_coef"] *= 6.0 / 4.0
@@ -412,9 +415,10 @@ def apply_forecast_exceptions(
         fop.sp["initial_bias"] += -0.05
 
     if fop.state_name == "Arkansas":
-        # fop.sp["drift_coef"] *= 1.0
-        # fop.ep["scale_ref_inc"] *= 0.5
+        fop.pp["denoise_cutoff"] = 0.50
+        fop.sp["drift_coef"] *= 2.7 / 0.4
         fop.sp["initial_bias"] += 0.1
+        fop.ep["scale_ref_inc"] *= 0.4
 
     if fop.state_name == "California":
         fop.sp["drift_coef"] *= 4.5 / 3.0
@@ -425,15 +429,17 @@ def apply_forecast_exceptions(
         fop.sp["drift_coef"] *= 4.0
 
     if fop.state_name == "Connecticut":
-        fop.sp["drift_coef"] *= 3.0
+        fop.sp["drift_coef"] *= 3.0 / 0.4
         fop.raw_incid_sr[-1] += 1
-        fop.sp["initial_bias"] = 0.25
+        fop.sp["initial_bias"] += 0.15
+        fop.ep["scale_ref_inc"] *= 0.4
 
     if fop.state_name == "Delaware":
         fop.sp["drift_coef"] *= 9.0
         fop.ep["scale_ref_inc"] *= 0.5
 
     if fop.state_name == "District of Columbia":
+        fop.sp["initial_bias"] += 0.15
         fop.sp["drift_coef"] *= 10.0
         fop.ep["scale_ref_inc"] *= 0.4
         fop.raw_incid_sr[-2:] += 1
@@ -444,11 +450,12 @@ def apply_forecast_exceptions(
         fop.ep["scale_ref_inc"] *= 4.
 
     if fop.state_name == "Georgia":
+        fop.sp["initial_bias"] += 0.10
         fop.raw_incid_sr[-4:] += 5
+        fop.sp["drift_coef"] *= 3.0 / 0.5
         fop.ep["scale_ref_inc"] *= 0.5
 
     if fop.state_name == "Hawaii":
-        fop.sp["drift_coef"] *= 8.0 / 0.6
         fop.ep["scale_ref_inc"] *= 0.6
         # fop.sp["initial_bias"] -= 0.08
 
@@ -458,24 +465,28 @@ def apply_forecast_exceptions(
         fop.ep["scale_ref_inc"] *= 0.8
 
     if fop.state_name == "Illinois":
-        fop.sp["drift_coef"] *= 1.0 / 0.6
-        fop.ep["scale_ref_inc"] *= 0.6
+        fop.sp["initial_bias"] += 0.10
+        fop.sp["drift_coef"] *= 7.0 / 0.5
+        fop.ep["scale_ref_inc"] *= 0.5
 
     if fop.state_name == "Indiana":
         fop.ep["scale_ref_inc"] *= 0.6
+        fop.sp["drift_coef"] *= 3.5 / 1.0
+        fop.ep["scale_ref_inc"] *= 1.0
+        fop.sp["initial_bias"] += 0.1
 
     if fop.state_name == "Iowa":
         fop.sp["initial_bias"] += 0.1
-        fop.sp["drift_coef"] *= 3.5 / 0.3
+        fop.sp["drift_coef"] *= 2.5 / 0.3
         fop.ep["scale_ref_inc"] *= 0.3
 
     if fop.state_name == "Kansas":
-        fop.sp["drift_coef"] *= 6.0
+        fop.sp["drift_coef"] *= 5.0 / 0.6
         fop.pp["denoise_cutoff"] = 0.50
         fop.ep["scale_ref_inc"] *= 0.6
 
     if fop.state_name == "Kentucky":
-        fop.sp["drift_coef"] *= 1.8
+        fop.sp["drift_coef"] *= 1.5 / 0.3
         fop.ep["scale_ref_inc"] *= 0.3
 
     if fop.state_name == "Louisiana":
@@ -494,6 +505,7 @@ def apply_forecast_exceptions(
         fop.sp["sigma"] += 0.05
 
     if fop.state_name == "Maryland":
+        fop.sp["drift_coef"] *= 2.0 / 0.6
         fop.ep["scale_ref_inc"] *= 0.6
 
     if fop.state_name == "Massachusetts":
@@ -1081,6 +1093,24 @@ def postprocess_all(params: Params, data: Data):
         rt_fore_dfs, keys=keys, names=["location_name", "date"],
     )
 
+    # Filtered series
+    # ---------------
+    preproc_dfs = list()
+    keys = list()
+    for state_name, fop in fop_sr.items():
+        fop: FluSight2024ForecastOperator
+
+        state_preproc_df = pd.DataFrame(
+            {"past_denoised": fop.extra["past_denoised_sr"]}
+        )
+
+        preproc_dfs.append(state_preproc_df)
+        keys.append(state_name)
+
+    data.main_preproc_df = pd.concat(
+        preproc_dfs, keys=keys, names=["location_name", "date"],
+    )
+
 
 def export_metadata(path, params: Params, data: Data):
     """Creates and exports a yaml file with forecasting metadata."""
@@ -1148,6 +1178,10 @@ def export_all(params: Params, data: Data):
     path = params.output_dir.joinpath("rt_fore.csv")
     data.main_rt_fore_df.to_csv(path)
 
+    # Preprocessed data
+    path = params.output_dir.joinpath("preproc.csv")
+    data.main_preproc_df.to_csv(path)
+
     # ----- Suggested files to export --------
     # TODO implement more
     # - [x] Metadata, summary, as you please
@@ -1155,7 +1189,7 @@ def export_all(params: Params, data: Data):
     # - [x] Quantiles
     # - [ ]  Categorical
     # - [x]  R(t) quantiles
-    # - [ ] Preprocessed data
+    # - [x] Preprocessed data
 
 
 if __name__ == "__main__":

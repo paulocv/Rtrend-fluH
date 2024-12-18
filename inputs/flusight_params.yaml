@@ -42,7 +42,7 @@ preprocessing:
   denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
 
   # For lowpass/polyfit method
-  denoise_cutoff: 0.300
+  denoise_cutoff: 0.400
   denoise_order: 2
   denoise_seed: 10
   
@@ -84,7 +84,7 @@ rt_synthesis:
 
   # Drift synth-reconstruction parameters
 #  drift_pop_coef: 50  #20.0e+3  # Coefficient of the drift term (population-normalized) ["drift_pop"]. Drift = coef / pop * c(t). Higher = more drift.
-  drift_coef: 0.15e-5  # Pure drift coefficient. Drift = coef * c(t). Overriden unless using synth_method = drift_const.
+  drift_coef: 0.25e-5  # Pure drift coefficient. Drift = coef * c(t). Overriden unless using synth_method = drift_const.
   rw_coef: 0.0
   bias: 0.000  # 0.001  # Bias added to the exponent at each R(t) drift step
   initial_bias: 0.1  # Bias added at the first R(t) drift step
