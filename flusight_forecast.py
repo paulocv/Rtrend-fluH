@@ -19,7 +19,7 @@ from rtrend_forecast.reporting import (
     get_rtrend_logger,
     get_main_exectime_tracker, SUCCESS,
 )
-from rtrend_forecast.structs import RtData, get_tg_object, IncidenceData
+from rtrend_forecast.structs import RtData, get_tg_object, IncidenceData, TimeData
 from rtrend_forecast.utils import map_parallel_or_sequential
 from utils.flusight_tools import (
     FluSightDates,
@@ -126,7 +126,11 @@ class USAForecast:
     # raw_incid_sr: pd.Series  # Complete series of incidence
     fore_quantiles: pd.DataFrame  # Aggregated period forecasted quantiles
     inc: IncidenceData  #
+    is_aggr: bool = True
+    gran_dt = pd.Timedelta("1d")
+    aggr_dt = pd.Timedelta("1w")
     logger: None
+    state_name: str = "US"
 
 #
 
@@ -688,7 +692,6 @@ def apply_forecast_exceptions(
         # fop.sp["initial_bias"] += -0.10
 
 
-
 # -------------------------------------------------------------------
 # MAIN TRAINING ROUTINES
 # -------------------------------------------------------------------
@@ -816,7 +819,9 @@ def run_forecasts_once(params: Params, data: Data):
     results = list()
     for _state_name, _fop in fop_sr.items():
         _fop: FluSight2024ForecastOperator
-        last_observed_date = _fop.raw_incid_sr.index.max()
+        # last_observed_date = _fop.raw_incid_sr.index.max()
+        last_observed_date = _fop.raw_incid_sr.index.max() + _fop.gran_dt
+        # last_observed_date = _fop.time.pg1  #  TODO: rethink what should be the date here.
 
         # Calculate rate changes
         df = calc_rate_change_categorical_flusight(
@@ -846,6 +851,11 @@ def calculate_for_usa(params: Params, data: Data):
     data.usa = USAForecast()
     data.usa.inc = IncidenceData()
     data.usa.inc.raw_sr = data.truth.xs_state("US")
+    # TODO : Best thing is to create all the infrastructure for USAForecast too, like `time`, `inc`, the ROI truth series, etc...
+    data.usa.time = TimeData()
+    if data.usa.is_aggr:  # TODO: This is a quick fix for the USA categorical. Please crop the ROI.
+        data.usa.inc.past_aggr_sr = data.truth.xs_state("US")#.loc[:last_observed_date]  # TODO do this
+        data.usa.time.pa1 = data.usa.inc.raw_sr.index.max()
     data.usa.logger = _LOGGER.getChild(f"US_{data.day_pres.date()}")
     # data.usa.raw_incid_sr = data.truth.xs_state("US")
 
@@ -907,7 +917,8 @@ def calculate_for_usa(params: Params, data: Data):
     # Aggregate spatially
     # -------------------
     data.usa.inc.fore_aggr_df = multistate_df.groupby("i_sample").sum()
-    last_observed_date = data.usa.inc.raw_sr.index.max()
+    last_observed_date = data.usa.inc.raw_sr.index.max() + data.usa.gran_dt
+    # last_observed_date = data.usa.inc.raw_sr.index.max()  # TODO: change here too
 
     # Calculate the categorical rate change forecasts
     # -----------------------------------------------

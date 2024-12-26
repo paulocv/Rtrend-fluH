@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from rtrend_forecast.structs import IncidenceData
 from utils.forecast_operators_flusight_2024 import FluSight2024ForecastOperator
 from utils.forecast_operators_flusight_2023 import FluSight2023ForecastOperator
 from utils.parsel_utils import get_next_weekly_timestamp
@@ -228,7 +229,7 @@ def calc_rate_change_categorical_flusight(
 
     if use_horizons is None:
         # use_horizons = [-1, 0, 1, 2, 3]  # Default FluSight 2023/2024
-        use_horizons = [0, 1, 2, 3]  # Default FluSight 2023/2024  # TODO: switch to this and test!!
+        use_horizons = [0, 1, 2, 3]  # Default FluSight 2024/2025
 
     # ----------------------------------------------------------------
     # Preprocessing
@@ -253,19 +254,36 @@ def calc_rate_change_categorical_flusight(
     baseline_gran_start = baseline_gran_end - pd.Timedelta("1w")
     # last_observed_date = day_pres - pd.Timedelta("1d")  # Last observed
 
+    # # -()- (NOP, "one week prior") As of 2024-12-19, the FluSight docs mention _reference date_ as baseline
+    # baseline_gran_end = dates.ref
+    # baseline_gran_start = baseline_gran_end - pd.Timedelta("1w")
+    # # last_observed_date = day_pres - pd.Timedelta("1d")  # Last observed
+
     # -\\-
 
-    if baseline_gran_end < last_observed_date:
+    # if baseline_gran_end <= last_observed_date:
+    if baseline_gran_end < last_observed_date:  # Correct one
         fop.logger.debug(
             "Rate change: the baseline is made of observed"
             " data (case 0)")
         # The baseline period is entirely observed
         # --- Observed chunk only
-        baseline = (
-            int(fop.inc.raw_sr.loc[baseline_gran_start:baseline_gran_end].sum())
-        )  # INTEGER
+        if fop.is_aggr:
+            baseline = (
+                int(fop.inc.past_aggr_sr.loc[fop.time.pa1])
+            )
 
-    elif baseline_gran_start <= last_observed_date <= baseline_gran_end:
+        else:
+            baseline = (
+                int(fop.inc.raw_sr.loc[baseline_gran_start:baseline_gran_end].sum())
+            )
+
+        pass
+
+    # elif baseline_gran_start <= last_observed_date < baseline_gran_end:
+    # elif baseline_gran_start <= last_observed_date <= baseline_gran_end:
+    elif baseline_gran_start < last_observed_date <= baseline_gran_end:
+        # TODO NOTE: THe <= or < depends on whether the data is granular or aggr. Please review.
         fop.logger.debug("Rate change: the baseline is a mix between "
                          "observed and nowcast data (case 1)")
         # The baseline period contains both known and nowcast data
@@ -275,18 +293,32 @@ def calc_rate_change_categorical_flusight(
         # WE ASSUME that the first forecasted week is the needed nowcast
         baseline = fop.inc.fore_aggr_df.iloc[:, 0]  # First column
 
+        # TODO: NEEDS FIX
         # --- Observed chunk
-        baseline += (
-            int(fop.inc.raw_sr.loc[baseline_gran_start:baseline_gran_end].sum())
-        )
+        # baseline += (
+        #     int(fop.inc.raw_sr.loc[baseline_gran_start:baseline_gran_end].sum())
+        # )  # TODO PROBLEM: Now that the truth data is WEEKLY (aggr), this chunk may be wrong
 
-    else:  # last_observed_date < baseline_gran_start
+        # # New approach: take from the granular preprocessed data (TODO ONoooh that's scaled!)
+        # baseline += (
+        #     int(fop.inc.past_gran_sr.loc[last_observed_date:baseline_gran_end].sum())
+        # )
+
+        pass
+
+    else:  # last_observed_date <= baseline_gran_start
         fop.logger.debug(
             "Rate change: the baseline is entirely nowcasted (case 0)")
         # The baseline period is solely nowcasted
         # --- Nowcast chunk only
         # WE ASSUME that the first forecasted week is the needed nowcast
-        baseline = fop.inc.fore_aggr_df.iloc[:, 0]  # First column
+        # baseline = fop.inc.fore_aggr_df.iloc[:, 0]  # First column
+
+        # Let's NOT assume this. Instead, we select as the right edge of the baseline period.
+        # baseline = fop.inc.fore_aggr_df.loc[:, baseline_gran_end]
+        baseline = fop.inc.fore_aggr_df.loc[:, baseline_gran_end + fop.gran_dt]  # TODO Temporrary fix: add 1 since Aggr index is 1 day after
+
+        pass
 
     # ----------------------------------------------------------------
     # Calculate the count changes with respect to the baseline
@@ -389,7 +421,7 @@ def calc_rate_change_categorical_flusight(
                 res.value_counts(),   # HERE the count is performed
                 fill_value=0).astype(int)
 
-            # TODO HERE: CHECK IF THERE WERE MISSED VALUES (silently ignored for now)
+            # HERE: CHECK IF THERE WERE MISSED VALUES (silently ignored for now)
 
             return bin_counts / bin_counts.sum()
 
@@ -402,5 +434,11 @@ def calc_rate_change_categorical_flusight(
     # Combines all horizons into a dataframe
     # ------------------------------------------------------------------
     df = pd.DataFrame(results_dict)
+
+    if fop.state_name in [
+        # "California",
+        "Arizona",
+    ]:
+        pass
 
     return df
