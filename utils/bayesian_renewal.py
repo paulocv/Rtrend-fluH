@@ -72,6 +72,45 @@ def _renewal_model_drift_exp(
     return ct_array[n_steps_given:], rt_sim_array, ""
 
 
+@nb.njit
+def aggregate_in_periods_numba(
+    array: np.ndarray,
+    period_len: int = 7,
+    backwards: bool = True,
+):
+    """"""
+    # If backwards, excess points at the start are ignored.
+    # If not backwards, excess points at the end are ignored.
+
+    # # -()- Reshape method
+    # # Remove excess points
+    # num_granular_points = (array.shape[0] // period_len) * period_len
+    # if backwards:
+    #     array = array[-num_granular_points:]
+    # else:
+    #     array = array[:num_granular_points]
+    #
+    # return array.reshape(-1, period_len).sum(axis=1)
+
+    # -()- For loop method (25% faster than reshape on tests)
+    num_aggregated_points = array.shape[0] // period_len
+    num_granular_points = num_aggregated_points * period_len
+    if backwards:
+        array = array[-num_granular_points:]
+    else:
+        array = array[:num_granular_points]
+
+    out = np.zeros(num_aggregated_points)
+    for i in range(num_aggregated_points):
+        out[i] = array[i * period_len : (i + 1) * period_len].sum()
+
+    return out
+
+
+
+
+
+
 def main():
     # Test parameters
     # ===============
@@ -81,6 +120,7 @@ def main():
     rt_bias = 0.2
     rt_current = 1.0
     drift_coef = 0.01
+    day_fore = pd.Timestamp("2024-12-29")  # First day that needs forecasting. Sunday
 
     # Build the generation time distribution
     # ==================
@@ -104,68 +144,75 @@ def main():
     )
     print(res)
 
-    # # Performance test
-    # # ===================
-    # from scipy.stats.qmc import LatinHypercube
-    # import time
-    # rng = np.random.default_rng(0)
-    # num_inner_samples = 1000  # Two-layer loop
-    # num_outer_samples = 100
-    # param_ranges = dict(
-    #     rt_bias=(-0.2, 0.2),
-    #     rt_current=(0.5, 2.0),
-    #     ct_current=(10, 1000),
-    # )
-    # lhs_01_array = LatinHypercube(d=len(param_ranges)).random(n=num_inner_samples)
-    # param_inner_samples = {
-    #     key: lhs_01_array[:, i] * (v[1] - v[0]) + v[0]
-    #     for i, (key, v) in enumerate(param_ranges.items())
-    # }
     #
-    # mean_list, std_list = list(), list()
-    # xt_inner_array = np.zeros(num_inner_samples, dtype=float)
-    # ct_given_array = np.empty(tg_max, dtype=float)
-    #
-    # # Run once to compile
-    # ct_given_array[:] = param_inner_samples["ct_current"][0]
-    # rt_bias = param_inner_samples["rt_bias"][0]
-    # rt_current = param_inner_samples["rt_current"][0]
-    #
-    # res = _renewal_model_drift_exp(
-    #     n_steps_sim=10, ct_given_array=ct_given_array, rt_current=rt_current,
-    #     tg_pmf_array=tg_pmf_array, rt_bias=rt_bias,
-    #     drift_coef=drift_coef
-    # )
-    #
-    # print(f"Running performance test... {num_inner_samples} | {num_outer_samples}")
-    # total_xt0 = time.time()
-    # for _ in range(num_outer_samples):
-    #
-    #     for i_inner in range(num_inner_samples):
-    #         ct_given_array[:] = param_inner_samples["ct_current"][i_inner]
-    #         rt_bias = param_inner_samples["rt_bias"][i_inner]
-    #         rt_current = param_inner_samples["rt_current"][i_inner]
-    #
-    #         xt0 = time.time()
-    #         res = _renewal_model_drift_exp(
-    #             n_steps_sim=10, ct_given_array=ct_given_array, rt_current=rt_current,
-    #             tg_pmf_array=tg_pmf_array, rt_bias=rt_bias,
-    #             drift_coef=drift_coef
-    #         )
-    #         xt1 = time.time()
-    #         xt_inner_array[i_inner] = xt1 - xt0
-    #
-    #     mean_list.append(xt_inner_array.mean())
-    #     std_list.append(xt_inner_array.std())
-    #
-    # total_xt1 = time.time()
-    #
-    # print(f"Total time: {total_xt1 - total_xt0:.3f} sec")
-    # mean_array = np.array(mean_list)
-    # print(f"Average mean time: {1E6 * mean_array.mean():.6f} μs")
-    # print(f"Std of mean time : {1E6 * mean_array.std():.6f} μs")
+
+    # ==================================================================
 
     #
+
+    # Performance test
+    # ===================
+    from scipy.stats.qmc import LatinHypercube
+    import time
+    rng = np.random.default_rng(0)
+    num_inner_samples = 1000  # Two-layer loop
+    num_outer_samples = 100
+    param_ranges = dict(
+        rt_bias=(-0.2, 0.2),
+        rt_current=(0.5, 2.0),
+        ct_current=(10, 1000),
+    )
+    lhs_01_array = LatinHypercube(d=len(param_ranges)).random(n=num_inner_samples)
+    param_inner_samples = {
+        key: lhs_01_array[:, i] * (v[1] - v[0]) + v[0]
+        for i, (key, v) in enumerate(param_ranges.items())
+    }
+
+    mean_list, std_list = list(), list()
+    xt_inner_array = np.zeros(num_inner_samples, dtype=float)
+    ct_given_array = np.empty(tg_max, dtype=float)
+
+    # Run once to compile
+    ct_given_array[:] = param_inner_samples["ct_current"][0]
+    rt_bias = param_inner_samples["rt_bias"][0]
+    rt_current = param_inner_samples["rt_current"][0]
+
+    ct_sim_array, rt_sim_array = _renewal_model_drift_exp(
+        n_steps_sim=28, ct_given_array=ct_given_array, rt_current=rt_current,
+        tg_pmf_array=tg_pmf_array, rt_bias=rt_bias,
+        drift_coef=drift_coef
+    )
+    ct_sim_aggr_array = aggregate_in_periods_numba(ct_sim_array, period_len=7, backwards=True)
+
+    print(f"Running performance test... {num_inner_samples} | {num_outer_samples}")
+    total_xt0 = time.time()
+    for _ in range(num_outer_samples):
+
+        for i_inner in range(num_inner_samples):
+            ct_given_array[:] = param_inner_samples["ct_current"][i_inner]
+            rt_bias = param_inner_samples["rt_bias"][i_inner]
+            rt_current = param_inner_samples["rt_current"][i_inner]
+
+            ct_sim_array, rt_sim_array = _renewal_model_drift_exp(
+                n_steps_sim=28, ct_given_array=ct_given_array, rt_current=rt_current,
+                tg_pmf_array=tg_pmf_array, rt_bias=rt_bias,
+                drift_coef=drift_coef
+            )
+
+            xt0 = time.time()
+            ct_sim_aggr_array = aggregate_in_periods_numba(ct_sim_array, period_len=7, backwards=True)
+            xt1 = time.time()
+            xt_inner_array[i_inner] = xt1 - xt0
+
+        mean_list.append(xt_inner_array.mean())
+        std_list.append(xt_inner_array.std())
+
+    total_xt1 = time.time()
+
+    print(f"Total time: {total_xt1 - total_xt0:.3f} sec")
+    mean_array = np.array(mean_list)
+    print(f"Average mean time: {1E6 * mean_array.mean():.6f} μs")
+    print(f"Std of mean time : {1E6 * mean_array.std():.6f} μs")
 
 
     pass
