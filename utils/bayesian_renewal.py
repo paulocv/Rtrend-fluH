@@ -79,31 +79,6 @@ def _renewal_model_drift_exp(
     return ct_array, rt_sim_array, ""  # Given + simulated (concat)
 
 
-@nb.njit
-def _aggregate_in_periods(
-    array: np.ndarray,
-    period_len: int = 7,
-    backwards: bool = True,
-):
-    """"""
-    # If backwards, excess points at the start are ignored.
-    # If not backwards, excess points at the end are ignored.
-
-    # -()- For loop method (25% faster than reshape on tests)
-    num_aggregated_points = array.shape[0] // period_len
-    num_granular_points = num_aggregated_points * period_len
-    if backwards:
-        array = array[-num_granular_points:]
-    else:
-        array = array[:num_granular_points]
-
-    out = np.zeros(num_aggregated_points)
-    for i in range(num_aggregated_points):
-        out[i] = array[i * period_len : (i + 1) * period_len].sum()
-
-    return out
-
-
 # Deterministic model that converts raw infection incidence (aggregated)
 # into hospitalization incidence, by applying a reported hospitalization
 # rate and a delay distribution as a PMF.
@@ -156,7 +131,33 @@ def _infections_to_hospitalizations_model(
     return ht_array, ""
 
 
+@nb.njit
+def _aggregate_in_periods(
+    array: np.ndarray,
+    period_len: int = 7,
+    backwards: bool = True,
+):
+    """"""
+    # If backwards, excess points at the start are ignored.
+    # If not backwards, excess points at the end are ignored.
+
+    # -()- For loop method (25% faster than reshape on tests)
+    num_aggregated_points = array.shape[0] // period_len
+    num_granular_points = num_aggregated_points * period_len
+    if backwards:
+        array = array[-num_granular_points:]
+    else:
+        array = array[:num_granular_points]
+
+    out = np.zeros(num_aggregated_points)
+    for i in range(num_aggregated_points):
+        out[i] = array[i * period_len : (i + 1) * period_len].sum()
+
+    return out
+
+
 # Negative binomial likelihood
+@wrap_numba_error
 @nb.njit
 def _calculate_nb_loglikelihood(
     ht_array: np.ndarray,
@@ -178,15 +179,10 @@ def _calculate_nb_loglikelihood(
             f"must match.")
         return np.nan, err_msg
 
-    # --- Calculate the overall loglikelihood
+    # --- Parameters
     n = 1 / overdispersion_r
     p_array = n / (n + ht_array)  #
 
-    # # -()- Scipy
-    # ll_array = scipy.stats.nbinom.logpmf(k=ht_array_empirical, n=n, p=p_array)
-    # total_ll = ll_array.sum()
-
-    # -()- For loop
     total_ll = 0.0
     for i_t in range(ht_array.shape[0]):
         k = ht_array_empirical[i_t]
@@ -194,6 +190,38 @@ def _calculate_nb_loglikelihood(
         total_ll += log_negative_binomial_pmf(k, n, p)
 
     return total_ll, ""
+
+
+@nb.njit
+def _calculate_nb_samples(
+        ht_array: np.ndarray,
+        overdispersion_r: float,   # r -> 0  =>  Poisson
+        seed=0,
+):
+    """"""
+    # # -()- Simple numpy
+    # n = 1 / overdispersion_r
+    # p_array = n / (n + ht_array)  #
+    # return np.random.negative_binomial(n, p_array)
+
+    # # -()- Numba-friendly (can't handle non-integer n)
+    # n = 1 / overdispersion_r
+    # out = np.empty(ht_array.shape[0], dtype=nb.int_)
+    # for i, ht_mean in enumerate(ht_array):
+    #     p = n / (n + ht_mean)
+    #     a = np.random.negative_binomial(n, p)  # WOW! Numba's NB doesn't accept non-integer n. :(
+    # return out
+
+    # -()- Gamma-Poisson mixture method
+    np.random.seed(seed)
+    n = 1 / overdispersion_r
+    out = np.empty(ht_array.shape[0], dtype=np.int_)
+    for i, ht_mean in enumerate(ht_array):
+        p = n / (n + ht_mean)
+        scale = (1 - p) / p
+        gamma_sample = np.random.gamma(n, scale)
+        out[i] = np.random.poisson(gamma_sample)
+    return out
 
 
 def main():
@@ -301,6 +329,12 @@ def main():
         nb_overdispersion_r
     )
 
+    # And let's sample with the NB distribution
+    ht_samples_array = _calculate_nb_samples(
+        ht_aggr_array[-n_weeks_fit:],
+        nb_overdispersion_r
+    )
+
     # ------
 
     print(f"Running performance test... inner = {num_inner_samples} | outer = {num_outer_samples}")
@@ -334,6 +368,12 @@ def main():
             cand_loglikelihood = _calculate_nb_loglikelihood(
                 ht_aggr_array[-n_weeks_fit:],
                 raw_incid_sr.values[-n_weeks_fit:],
+                nb_overdispersion_r
+            )
+
+            # And let's sample with the NB distribution
+            ht_samples_array = _calculate_nb_samples(
+                ht_aggr_array[-n_weeks_fit:],
                 nb_overdispersion_r
             )
 
