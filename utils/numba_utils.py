@@ -121,3 +121,30 @@ def wrap_numba_error(function):
 
     return res_fun
 
+
+import math
+from numba import jit
+
+
+@nb.njit
+def log_negative_binomial_pmf(k, n, p):
+    """
+    Calculate the logarithm of the negative binomial PMF.
+
+    Parameters:
+        k (int): Number of failures until the experiment is stopped.
+        n (int): Number of successes.
+        p (float): Probability of success.
+
+    Returns:
+        float: Logarithm of the negative binomial PMF.
+    """
+    if k < 0 or n <= 0 or not (0 < p < 1):
+        raise ValueError("Invalid parameters: k >= 0, n > 0, and 0 < p < 1 are required.")
+
+    log_binom_coeff = (
+            math.lgamma(k + n) - math.lgamma(k + 1) - math.lgamma(n)
+    )
+    log_pmf = log_binom_coeff + n * math.log(p) + k * math.log(1 - p)
+    return log_pmf
+

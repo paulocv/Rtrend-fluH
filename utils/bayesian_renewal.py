@@ -12,7 +12,7 @@ import pandas as pd
 import scipy
 import scipy.stats
 
-from utils.numba_utils import float_to_str, float_to_str_exp, wrap_numba_error
+from utils.numba_utils import float_to_str, float_to_str_exp, wrap_numba_error, log_negative_binomial_pmf
 
 
 @wrap_numba_error
@@ -157,10 +157,43 @@ def _infections_to_hospitalizations_model(
 
 
 # Negative binomial likelihood
+@nb.njit
 def _calculate_nb_loglikelihood(
-
+    ht_array: np.ndarray,
+    ht_array_empirical: np.ndarray,
+    overdispersion_r: float,   # r -> 0  =>  Poisson
 ):
     """"""
+    # NOTE:
+    # ht_array: h(t) AVERAGE number of hospitalizations at time t. Floats.
+    # ht_array_empirical: h(t) data, number of hospitalizations. Integer.
+
+    # NOTE: for now, sizes of ht_array and ht_array_empirical must match!
+
+    if ht_array.shape[0] != ht_array_empirical.shape[0]:
+        # raise ValueError("Size mismatch. Please implement error handling.")
+        err_msg = (
+            f"Sizes of `ht_array` ({ht_array.shape[0]}) and "
+            f"`ht_array_empirical` ({ht_array_empirical.shape[0]}) "
+            f"must match.")
+        return np.nan, err_msg
+
+    # --- Calculate the overall loglikelihood
+    n = 1 / overdispersion_r
+    p_array = n / (n + ht_array)  #
+
+    # # -()- Scipy
+    # ll_array = scipy.stats.nbinom.logpmf(k=ht_array_empirical, n=n, p=p_array)
+    # total_ll = ll_array.sum()
+
+    # -()- For loop
+    total_ll = 0.0
+    for i_t in range(ht_array.shape[0]):
+        k = ht_array_empirical[i_t]
+        p = p_array[i_t]
+        total_ll += log_negative_binomial_pmf(k, n, p)
+
+    return total_ll, ""
 
 
 def main():
@@ -177,13 +210,19 @@ def main():
     hd_max = 10
 
     hosp_frac = 0.1
+    nb_overdispersion_r = 0.1
 
     # R(t) and c(t) model
-    n_sim_steps = 28
+    n_sim_steps = 35
     rt_bias = 0.2
     rt_current = 1.0
     drift_coef = 0.0001
     day_fore = pd.Timestamp("2024-12-29")  # First day that needs forecasting. Sunday
+
+    # Etc
+    n_weeks_fit = 4  # Number of weeks of truth data to fit the model for
+
+    _rng = np.random.default_rng(43)
 
     # Build the generation time distribution
     # ==================
@@ -203,7 +242,11 @@ def main():
 
     # Build a synthetic empirical time series
     # ================
-    # TODO
+    len_raw_incid_sr = 5
+    raw_incid_sr = pd.Series(
+        _rng.poisson(lam=10 * np.exp(0.3 * np.arange(len_raw_incid_sr))),
+        index=pd.date_range(start="2025-01-05", freq="w-sun", periods=len_raw_incid_sr)
+    )
 
     #
 
@@ -215,7 +258,6 @@ def main():
     # ===================
     from scipy.stats.qmc import LatinHypercube
     import time
-    rng = np.random.default_rng(0)
     num_inner_samples = 1000  # Two-layer loop
     num_outer_samples = 100
     param_ranges = dict(
@@ -223,7 +265,9 @@ def main():
         rt_current=(0.5, 2.0),
         ct_current=(10, 1000),
     )
-    lhs_01_array = LatinHypercube(d=len(param_ranges)).random(n=num_inner_samples)
+    lhs_01_array = LatinHypercube(
+        d=len(param_ranges), seed=_rng
+    ).random(n=num_inner_samples)
     param_inner_samples = {
         key: lhs_01_array[:, i] * (v[1] - v[0]) + v[0]
         for i, (key, v) in enumerate(param_ranges.items())
@@ -233,8 +277,8 @@ def main():
 
     # Run once to compile
     ct_given_array[:] = 100  # param_inner_samples["ct_current"][0]  # TEST
-    rt_bias = param_inner_samples["rt_bias"][0]
-    rt_current = param_inner_samples["rt_current"][0]
+    rt_bias = 0.00  # param_inner_samples["rt_bias"][0]  # TEST
+    rt_current = 1.3   #  param_inner_samples["rt_current"][0]
 
     # noinspection PyTupleAssignmentBalance
     ct_array, rt_sim_array = _renewal_model_drift_exp(
@@ -249,6 +293,15 @@ def main():
     )
 
     ht_aggr_array = _aggregate_in_periods(ht_array, period_len=7, backwards=True)
+
+    # Let's pair the empirical and simulated data
+    cand_loglikelihood = _calculate_nb_loglikelihood(
+        ht_aggr_array[-n_weeks_fit:],
+        raw_incid_sr.values[-n_weeks_fit:],
+        nb_overdispersion_r
+    )
+
+    # ------
 
     print(f"Running performance test... inner = {num_inner_samples} | outer = {num_outer_samples}")
     mean_list, std_list = list(), list()
@@ -276,6 +329,14 @@ def main():
             )
 
             ht_aggr_array = _aggregate_in_periods(ht_array, period_len=7, backwards=True)
+
+            # Let's pair the empirical and simulated data
+            cand_loglikelihood = _calculate_nb_loglikelihood(
+                ht_aggr_array[-n_weeks_fit:],
+                raw_incid_sr.values[-n_weeks_fit:],
+                nb_overdispersion_r
+            )
+
             xt1 = time.time()
             xt_inner_array[i_inner] = xt1 - xt0
 
