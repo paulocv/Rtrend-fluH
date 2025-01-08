@@ -23,7 +23,8 @@ general:
 
   # State selection
   use_states: # ["Wyoming", "Illinois", "Florida", "California"]  # Leave blank to use all
-  dont_use_states: ["US", "Virgin Islands"]  # Always have "US"
+#  dont_use_states: ["US", "Virgin Islands"]  # Always have "US"
+  dont_use_states: ["US", "Virgin Islands", "Puerto Rico"]  # 2025-01-08: REMOVING PUERTO RICO TEMPORARILY
 
   # Generation time parameters
   tg_model: "const_gamma"
