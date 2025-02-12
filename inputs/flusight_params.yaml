@@ -43,7 +43,7 @@ preprocessing:
   denoise_nperiods: 7  # (for normal_periodic) Period of weekly patterns in days
 
   # For lowpass/polyfit method
-  denoise_cutoff: 0.590
+  denoise_cutoff: 0.300
   denoise_order: 2
   denoise_seed: 10
   
