@@ -24,7 +24,7 @@ general:
   # State selection
   use_states: # ["Wyoming", "Illinois", "Florida", "California"]  # Leave blank to use all
 #  dont_use_states: ["US", "Virgin Islands"]  # Always have "US"
-  dont_use_states: ["US", "Virgin Islands", "Puerto Rico"]  # 2025-01-08: REMOVING PUERTO RICO TEMPORARILY
+  dont_use_states: ["US", "Virgin Islands"]
 
   # Generation time parameters
   tg_model: "const_gamma"
@@ -88,7 +88,7 @@ rt_synthesis:
   drift_coef: 0.125e-5  # Pure drift coefficient. Drift = coef * c(t). Overriden unless using synth_method = drift_const.
   rw_coef: 0.0
   bias: 0.000  # 0.001  # Bias added to the exponent at each R(t) drift step
-  initial_bias: 0.00  # Bias added at the first R(t) drift step
+  initial_bias: -0.03  # Bias added at the first R(t) drift step
 
   # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
   k_start: 0.95    # Ramp method: starting coefficient
