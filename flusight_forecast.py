@@ -429,10 +429,10 @@ def apply_forecast_exceptions(
         fop.ep["scale_ref_inc"] *= 0.40
 
     if fop.state_name == "California":
-        fop.sp["drift_coef"] *= 4.5 / 0.3
+        fop.sp["drift_coef"] *= 4.5 / 0.75
         fop.pp["denoise_cutoff"] *= 1.4
-        fop.sp["initial_bias"] += -0.02
-        fop.ep["scale_ref_inc"] *= 0.3
+        fop.sp["initial_bias"] += -0.04
+        fop.ep["scale_ref_inc"] *= 0.75
 
     if fop.state_name == "Colorado":
         fop.sp["drift_coef"] *= 4.0 / 0.5
@@ -484,6 +484,7 @@ def apply_forecast_exceptions(
         fop.sp["initial_bias"] -= 0.05
 
     if fop.state_name == "Illinois":
+        fop.pp["denoise_cutoff"] *= 1.2
         fop.sp["initial_bias"] += -0.05
         fop.sp["drift_coef"] *= 6.5 / 0.28
         fop.ep["scale_ref_inc"] *= 0.28
@@ -610,11 +611,11 @@ def apply_forecast_exceptions(
         # fop.sp["initial_bias"] += -0.10
 
     if fop.state_name == "North Dakota":
-        fop.raw_incid_sr[-3:] += 1
-        fop.sp["drift_coef"] *= 10.0 / 0.20
-        fop.ep["scale_ref_inc"] *= 0.20
+        # fop.raw_incid_sr[-3:] += 1
+        fop.sp["drift_coef"] *= 10.0 / 0.35
+        fop.ep["scale_ref_inc"] *= 0.35
         fop.pp["denoise_cutoff"] *= 1.4
-        fop.sp["initial_bias"] += -0.05
+        fop.sp["initial_bias"] += -0.06
         # fop.sp["synth_method"] = "rnd_normal"
         # fop.sp["center"] = 1.1
         # fop.sp["sigma"] = 0.15
@@ -625,9 +626,9 @@ def apply_forecast_exceptions(
         fop.sp["initial_bias"] += -0.10
 
     if fop.state_name == "Oklahoma":
-        fop.sp["drift_coef"] *= 7.0 / 0.20
+        fop.sp["drift_coef"] *= 7.0 / 0.50
         fop.pp["denoise_cutoff"] *= 1.5
-        fop.ep["scale_ref_inc"] *= 0.20
+        fop.ep["scale_ref_inc"] *= 0.50
         fop.sp["initial_bias"] += 0.04
 
     if fop.state_name == "Oregon":
@@ -657,8 +658,8 @@ def apply_forecast_exceptions(
 
     if fop.state_name == "South Dakota":
         fop.raw_incid_sr[-2:] += 2
-        fop.sp["drift_coef"] *= 9.0 / 0.10
-        fop.ep["scale_ref_inc"] *= 0.10
+        fop.sp["drift_coef"] *= 9.0 / 0.20
+        fop.ep["scale_ref_inc"] *= 0.20
         fop.sp["initial_bias"] += -0.10
         # fop.sp["synth_method"] = "rnd_normal"
         # fop.sp["center"] = 1.01
