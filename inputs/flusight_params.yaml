@@ -61,7 +61,7 @@ rt_estimation:
   scale_method: data_pwr  # const, data_pwr, pop_pwr?
   scale_roi_len: 60   # ["data_pwr" method] – How many granular periods of past incidence to consider for the scaling factor.
   scale_power: 0.95   # Pwr method: scaled = (ref / avg) ** power. Values lower than 1 add uncertainty to lower incidence and remove from higher.
-  scale_ref_inc: 600  # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
+  scale_ref_inc: 500  # 65  # Reference incidence for scaling ["data_pwr" method]. Larger => more confident
   scale_ref_pop: 12000  # Reference population for scaling ["pop_pwr" method]
   # scale_factor: 1.2  # ["const" method; overridden by other methods]
 
