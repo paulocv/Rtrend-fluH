@@ -199,20 +199,6 @@ def _calculate_nb_samples(
         seed=0,
 ):
     """"""
-    # # -()- Simple numpy
-    # n = 1 / overdispersion_r
-    # p_array = n / (n + ht_array)  #
-    # return np.random.negative_binomial(n, p_array)
-
-    # # -()- Numba-friendly (can't handle non-integer n)
-    # n = 1 / overdispersion_r
-    # out = np.empty(ht_array.shape[0], dtype=nb.int_)
-    # for i, ht_mean in enumerate(ht_array):
-    #     p = n / (n + ht_mean)
-    #     a = np.random.negative_binomial(n, p)  # WOW! Numba's NB doesn't accept non-integer n. :(
-    # return out
-
-    # -()- Gamma-Poisson mixture method
     np.random.seed(seed)
     n = 1 / overdispersion_r
     out = np.empty(ht_array.shape[0], dtype=np.int_)

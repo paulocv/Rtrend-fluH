@@ -473,7 +473,7 @@ def apply_forecast_exceptions(
         fop.ep["scale_ref_inc"] *= 0.25
 
     if fop.state_name == "Hawaii":
-        fop.sp["drift_coef"] *= 5.5 / 0.5
+        fop.sp["drift_coef"] *= 3.0 / 0.5
         fop.ep["scale_ref_inc"] *= 0.5
         # fop.sp["initial_bias"] -= 0.05
 
@@ -501,10 +501,10 @@ def apply_forecast_exceptions(
 
     if fop.state_name == "Kansas":
         # fop.raw_incid_sr[-1] -= 20
-        fop.sp["drift_coef"] *= 10.0 / 0.25
+        fop.sp["drift_coef"] *= 15.0 / 0.25
         fop.pp["denoise_cutoff"] *= 1.4
         fop.ep["scale_ref_inc"] *= 0.25
-        fop.sp["initial_bias"] += -0.10
+        fop.sp["initial_bias"] += 0.0
 
     if fop.state_name == "Kentucky":
         fop.sp["drift_coef"] *= 6.0 / 0.40
@@ -574,7 +574,7 @@ def apply_forecast_exceptions(
 
     if fop.state_name == "Nebraska":
         fop.sp["drift_coef"] *= 28. / 0.2
-        fop.ep["scale_ref_inc"] *= 0.2
+        fop.ep["scale_ref_inc"] *= 0.13
         fop.sp["initial_bias"] += -0.10
 
     if fop.state_name == "Nevada":
@@ -629,8 +629,8 @@ def apply_forecast_exceptions(
     if fop.state_name == "Oklahoma":
         fop.sp["drift_coef"] *= 14.0 / 0.24
         fop.pp["denoise_cutoff"] *= 1.5
-        fop.ep["scale_ref_inc"] *= 0.24
-        fop.sp["initial_bias"] -= 0.05
+        fop.ep["scale_ref_inc"] *= 0.18
+        fop.sp["initial_bias"] += 0.05
 
     if fop.state_name == "Oregon":
         fop.sp["drift_coef"] *= 8.0 / 0.25
