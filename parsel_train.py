@@ -22,7 +22,7 @@ from rtrend_forecast.reporting import (
     ExecTimeTracker,
     get_rtrend_logger,
     get_main_exectime_tracker,
-    SUCCESS,
+    SUCCESS, config_rtrend_logger,
 )
 from rtrend_forecast.structs import RtData, get_tg_object
 from rtrend_forecast.preprocessing import apply_lowpass_filter_pdseries
@@ -101,6 +101,7 @@ class CLArgs:
     input_file: Path
     # output_dir: Path  # Not required here
     export: bool
+    loglevel: int
 
 
 class Params:
@@ -201,6 +202,12 @@ def parse_args():
              "output files are stored."
     )
 
+    parser.add_argument(
+        "--loglevel", type=int,
+        help="Poject logger level. Set according to python's "
+             "`logging` library documentation."
+    )
+
     #
     # --- Optional flags - SET TO NONE to have no effect
     parser.add_argument(
@@ -242,6 +249,9 @@ def import_params(args: CLArgs):
     for key, val in DEFAULT_PARAMS_RT_ESTIMATION.items():
         if key not in params.rt_estimation:
             params.rt_estimation[key] = val
+
+    if args.loglevel:
+        config_rtrend_logger(args.loglevel)
 
     # You can rename parameters here.
 
@@ -671,6 +681,10 @@ def run_training(params: Params, data: Data, WHAT_ELSE=None):
 
 
 # -- -- - - - OAO APAGAR LATER
+
+    # TODO Test the forecasts
+    fop: ParSelTrainOperator = iter_data.fop_sr.iloc[0]
+    print(fop.fore_quantiles)
 
     # # # # TODO TESTING THE SCORING
     # fop: ParSelTrainOperator = data.fop_sr.iloc[0]
