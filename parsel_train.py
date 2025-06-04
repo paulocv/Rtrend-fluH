@@ -24,7 +24,7 @@ from rtrend_forecast.reporting import (
     get_main_exectime_tracker,
     SUCCESS, config_rtrend_logger,
 )
-from rtrend_forecast.structs import RtData, get_tg_object
+from rtrend_forecast.structs import RtData, get_tg_object, IncidenceData
 from rtrend_forecast.preprocessing import apply_lowpass_filter_pdseries
 from rtrend_forecast.utils import map_parallel_or_sequential
 from utils.forecast_operators_experimental import WEEKLEN, ParSelTrainOperator
@@ -40,6 +40,7 @@ DEFAULT_PARAMS = dict(  # Parameters that go in the main Params class
     # Field names in the preprocessed data file
     filt_col_name="filtered",
     filtround_col_name="filtered_round",
+    us_location_name="US",
 
     export=True,
 
@@ -121,6 +122,7 @@ class Params:
     # Program parameters
     filt_col_name: str
     filtround_col_name: str
+    us_location_name: str
     ncpus_dates: int
     ncpus_states: int
     export: bool
@@ -169,6 +171,30 @@ class TrainIterationData:
         ]:
             if name in kwargs:
                 setattr(self, name, kwargs[name])
+
+
+class USAForecast:
+    """A simplified forecast operator which holds data from the aggregation
+    of multiple locations.
+    """
+    # raw_incid_sr: pd.Series  # Complete series of incidence
+    fore_quantiles: pd.DataFrame  # Aggregated period forecasted quantiles
+    inc: IncidenceData  #
+    is_aggr: bool = False
+    gran_dt = pd.Timedelta("1d")
+    aggr_dt = pd.Timedelta("1w")
+    logger: None
+    state_name: str = "US"
+
+    def __init__(
+            self,
+            raw_incid_sr: pd.Series
+    ):
+        # --- Composite structs
+        self.inc = IncidenceData()
+        self.inc.is_aggr = self.is_aggr
+        self.inc.raw_sr = raw_incid_sr
+
 
 #
 
@@ -460,11 +486,24 @@ def run_forecasts_once(params: Params, data: Data, iter_data: TrainIterationData
 
         # Run for states
         # ----------------------------
-        return map_parallel_or_sequential(
-            state_task, enumerate(use_state_names), params.ncpus_states
+        results: list[ParSelTrainOperator] = (
+            map_parallel_or_sequential(
+                state_task, enumerate(use_state_names), params.ncpus_states
+            )
         )
 
-        # TODO: BUILD USA HERE?!????
+        # --- Build aggregate forecast over all locations
+        if len(results) == 0: return results
+        us_series = truth_df.xs(
+            state_name_to_id[params.us_location_name], level="location")["value"]
+        usa_fop = USAForecast(us_series)
+        usa_fop.fore_quantiles = results[0].fore_quantiles
+        for fop in results[1:]:
+            usa_fop.fore_quantiles += fop.fore_quantiles
+
+
+        return results
+
 
         # --------------------------------- End of date_task ---
 
@@ -498,7 +537,7 @@ def score_forecasts_once(params: Params, data: Data, iter_data: TrainIterationDa
     # -----------------------------------
     # Preamble operations
     # -----------------------------------
-    _LOGGER.debug("Begin scoring forecasts.")
+    _LOGGER.info("Begin scoring of forecasts.")
     # Filter invalid
     fop_sr = iter_data.fop_sr.loc[iter_data.fop_sr_valid_mask]
 
@@ -618,7 +657,6 @@ def score_forecasts_once(params: Params, data: Data, iter_data: TrainIterationDa
     #         alphas=alphas,
     #     )
 
-
     # # fop: ParSelTrainOperator = data.fop_sr.iloc[0]
     # # day_pres, state_name = data.fop_sr.index[0]
     #
@@ -628,7 +666,6 @@ def score_forecasts_once(params: Params, data: Data, iter_data: TrainIterationDa
     # truth_weekly = data.golden_truth_weekly_sr.xs(
     #     data.state_name_to_id[state_name], level="location"
     # )
-
 
 
 # ----
@@ -682,20 +719,23 @@ def run_training(params: Params, data: Data, WHAT_ELSE=None):
 
 # -- -- - - - OAO APAGAR LATER
 
-    # TODO Test the forecasts
-    fop: ParSelTrainOperator = iter_data.fop_sr.iloc[0]
-    print(fop.fore_quantiles)
+    # # TODO Test the forecasts
+    # fop: ParSelTrainOperator = iter_data.fop_sr.iloc[0]
+    # print(fop.fore_quantiles)
+
+    # # TODO test the consolidated code for scores
+    print(iter_data.weekly_scores_df)
 
     # # # # TODO TESTING THE SCORING
     # fop: ParSelTrainOperator = data.fop_sr.iloc[0]
     # day_pres, state_name = data.fop_sr.index[0]
     #
     # from rtrend_forecast.scoring import covered_score
-    #
-    # # WHAT DO I NEED
-    # # - Array of truth observations (daily or weekly)
-    # # - Dictionary-like of quantile forecasts
-    # # -
+
+    # WHAT DO I NEED
+    # - Array of truth observations (daily or weekly)
+    # - Dictionary-like of quantile forecasts
+    # -
     #
     # truth_daily = data.golden_truth_daily_sr.xs(
     #     data.state_name_to_id[state_name], level="location"
@@ -703,25 +743,25 @@ def run_training(params: Params, data: Data, WHAT_ELSE=None):
     # truth_weekly = data.golden_truth_weekly_sr.xs(
     #     data.state_name_to_id[state_name], level="location"
     # )
-    #
-    # # # --- TEST - DAILY
-    # # fop.score_forecast(
-    # #     which="gran",
-    # #     truth_sr=truth_daily,
-    # #     time_labels=day_pres + daily_horizon_deltas,
-    # #     alphas=alphas,
-    # # )
-    #
+
+    # # --- TEST - DAILY
+    # fop.score_forecast(
+    #     which="gran",
+    #     truth_sr=truth_daily,
+    #     time_labels=day_pres + daily_horizon_deltas,
+    #     alphas=alphas,
+    # )
+
     # # --- TEST - WEEKLY
     # scores = fop.score_forecast(
     #     which="aggr",
     #     method="wis",
     #     truth_sr=truth_weekly,
-    #     time_labels=day_pres + weekly_horizon_deltas,
-    #     alphas=alphas,
+    #     time_labels=day_pres + data.weekly_horizon_deltas,
+    #     alphas=data.q_alphas,
     # )
-    #
-    # # covered_score()
+
+    # covered_score()
 
 
 if __name__ == "__main__":

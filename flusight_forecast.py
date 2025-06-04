@@ -888,7 +888,6 @@ def calculate_for_usa(params: Params, data: Data):
     data.usa = USAForecast()
     data.usa.inc = IncidenceData()
     data.usa.inc.raw_sr = data.truth.xs_state("US")
-    # TODO : Best thing is to create all the infrastructure for USAForecast too, like `time`, `inc`, the ROI truth series, etc...
     data.usa.time = TimeData()
     if data.usa.is_aggr:  # TODO: This is a quick fix for the USA categorical. Please crop the ROI.
         data.usa.inc.past_aggr_sr = data.truth.xs_state("US")#.loc[:last_observed_date]  # TODO do this
