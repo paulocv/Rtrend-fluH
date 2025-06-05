@@ -10,6 +10,7 @@ also performs preprocessing within each forecasting loop.
 import argparse
 import datetime
 import os
+import sys
 from collections import OrderedDict
 from pathlib import Path
 
@@ -24,7 +25,7 @@ from rtrend_forecast.reporting import (
     get_main_exectime_tracker,
     SUCCESS, config_rtrend_logger,
 )
-from rtrend_forecast.structs import RtData, get_tg_object, IncidenceData
+from rtrend_forecast.structs import RtData, get_tg_object, IncidenceData, TimeData
 from rtrend_forecast.preprocessing import apply_lowpass_filter_pdseries
 from rtrend_forecast.utils import map_parallel_or_sequential
 from utils.forecast_operators_experimental import WEEKLEN, ParSelTrainOperator
@@ -158,7 +159,7 @@ class Data:
 
 class TrainIterationData:
     """A data bunch for storing data from a specific iteration."""
-    fop_sr: pd.Series
+    fop_sr: pd.Series  # Signature: sr[(date_str, state_str)] = Forecast operator or USA operator
     fop_sr_valid_mask: pd.Series
     daily_scores_df: pd.DataFrame
     weekly_scores_df: pd.DataFrame
@@ -183,18 +184,59 @@ class USAForecast:
     is_aggr: bool = False
     gran_dt = pd.Timedelta("1d")
     aggr_dt = pd.Timedelta("1w")
+    aggr_nperiods = 7  # Number of gran periods that an aggregated period has
     logger: None
     state_name: str = "US"
 
     def __init__(
             self,
-            raw_incid_sr: pd.Series
+            raw_incid_sr: pd.Series,
+            nperiods_fore: int,
+            day_pres: pd.Timestamp,
+            name: str,
     ):
+        self.nperiods_fore = nperiods_fore
+        self.name = name
+
         # --- Composite structs
         self.inc = IncidenceData()
         self.inc.is_aggr = self.is_aggr
         self.inc.raw_sr = raw_incid_sr
 
+        # if tg_past is None:
+        #     self.tg_past = TgBase()
+        #     raise NotImplementedError("Hey, by now you must inform a "
+        #                               "Tg object at construction.")
+        # else:
+        #     self.tg_past = tg_past
+        #
+        # self.tg_fore = tg_fore  # `None` is acceptable
+        #
+        # self.rt_past: RtData = None
+        # self.rt_fore: RtData = None
+        #
+        # self.noise_obj_dict: dict[AbstractNoise] = dict()
+
+        # --- Infrastructure related to time stamps
+        self.time = TimeData()
+        self.time.is_aggr = self.is_aggr
+        self.time.pres = day_pres
+
+        if self.is_aggr:
+            self.inc.past_aggr_sr = self.inc.raw_sr
+            self.time.pa1 = self.inc.raw_sr.index.max()
+
+        # --- Other infrastructure
+        self.logger = _LOGGER.getChild(self.name)
+        self.success = True
+
+        # --- Manually calculate number of periods in granular time.
+        # Useful for categorical forecast
+        if self.is_aggr:
+            self.nperiods_fore_gran = (
+                    self.nperiods_fore * self.aggr_nperiods)
+        else:
+            self.nperiods_fore_gran = self.nperiods_fore
 
 #
 
@@ -408,7 +450,9 @@ def load_and_aggregate_golden_truth(params: Params):
 
 # @LOCAL_XTT.track()
 @GLOBAL_XTT.track()
-def run_forecasts_once(params: Params, data: Data, iter_data: TrainIterationData, WHAT_ELSE=None):
+def run_forecasts_once(
+        params: Params, data: Data, WHAT_ELSE=None
+) -> TrainIterationData:
     """Runs the forecast with the
     given parameters, for all locations and selected dates.
     """
@@ -465,6 +509,7 @@ def run_forecasts_once(params: Params, data: Data, iter_data: TrainIterationData
                 nperiods_fore=WEEKLEN * params.general["nperiods_fore"],
                 name=f"{_sn}_{day_pres_str}",
                 tg_past=tg,
+                state_name=_sn
             )
             _LOGGER.debug(f"Created forecast operator {fop.name}")
 
@@ -486,24 +531,28 @@ def run_forecasts_once(params: Params, data: Data, iter_data: TrainIterationData
 
         # Run for states
         # ----------------------------
-        results: list[ParSelTrainOperator] = (
+        state_fop_list: list[ParSelTrainOperator] = (
             map_parallel_or_sequential(
                 state_task, enumerate(use_state_names), params.ncpus_states
             )
         )
 
         # --- Build aggregate forecast over all locations
-        if len(results) == 0: return results
-        us_series = truth_df.xs(
-            state_name_to_id[params.us_location_name], level="location")["value"]
-        usa_fop = USAForecast(us_series)
-        usa_fop.fore_quantiles = results[0].fore_quantiles
-        for fop in results[1:]:
-            usa_fop.fore_quantiles += fop.fore_quantiles
+        usa_fop = aggregate_all_states_forecast(
+            params, state_fop_list, state_name_to_id,
+            day_pres, truth_df
+        )
+        state_fop_list.append(usa_fop)
 
+        # if len(state_fop_list) == 0: return state_fop_list
+        # us_series = truth_df.xs(
+        #     state_name_to_id[params.us_location_name], level="location")["value"]
+        # usa_fop = USAForecast(us_series)
+        # usa_fop.fore_quantiles = state_fop_list[0].fore_quantiles
+        # for fop in state_fop_list[1:]:
+        #     usa_fop.fore_quantiles += fop.fore_quantiles
 
-        return results
-
+        return state_fop_list
 
         # --------------------------------- End of date_task ---
 
@@ -517,15 +566,143 @@ def run_forecasts_once(params: Params, data: Data, iter_data: TrainIterationData
 
     # Post-forecast collection
     # ---------------------------------------------
-    # --- Build one series of fop objects (with 2-level multiindex)
-    iter_data.fop_sr = (
-        pd.Series(sum(date_state_fop_list, []),
-                  index=data.date_state_idx))
+    iter_data = TrainIterationData()
+
+    # --- Build a single series of fop objects (with 2-level multiindex)
+    # For all dates and states.
+    flat_fop_list = sum(date_state_fop_list, [])
+    # Agnostically builds the index instead of using `data.date_state_idx`
+    flat_index = pd.MultiIndex.from_tuples(
+        [(fop.time.pres.date().isoformat(), fop.state_name) for fop in flat_fop_list])
+    iter_data.fop_sr = pd.Series(flat_fop_list, index=flat_index)
 
     # --- Store and check valid outputs
     iter_data.fop_sr_valid_mask = iter_data.fop_sr.map(
         lambda fop: fop.success
     )
+
+    return iter_data
+
+
+def aggregate_all_states_forecast(
+        params: Params,
+        state_fop_list: list[ParSelTrainOperator],
+        state_name_to_id,
+        day_pres: pd.Timestamp,
+        truth_df: pd.DataFrame,
+) -> USAForecast:
+    """ Combines forecasts from all states to produce a USA-level forecast.
+    If not all states have produced forecasts, this should not be
+    interpreted as USA-level.
+    """
+    day_pres_str = day_pres.date().isoformat()
+    # Build a series of fop objects for easier handling
+    fop_sr = pd.Series(
+        state_fop_list,
+        index=[fop.name for fop in state_fop_list],
+    )
+
+    # --- Select USA-level truth
+    truth_sr = (
+        truth_df
+        .xs(state_name_to_id[params.us_location_name], level="location")["value"]
+        .sort_index()
+    )
+    # --- Create USA forecast object, special
+    usa_fop = USAForecast(
+        truth_sr,
+        nperiods_fore=WEEKLEN * params.general["nperiods_fore"],
+        day_pres=day_pres,
+        name=f"US_{day_pres_str}",
+    )
+
+    # --- Filter invalid forecasts
+    fop_sr_valid_mask = fop_sr.map(lambda fop: fop.success)
+    fop_sr: pd.Series = fop_sr.loc[fop_sr_valid_mask]
+    if fop_sr.shape[0] == 0:  # Valid dataset is empty
+        raise RuntimeError(
+            "No forecasts were produced with the `success` flag set to"
+            " `True`."
+        )
+
+    if not fop_sr_valid_mask.all():
+        diff = (~fop_sr_valid_mask).sum()
+        _LOGGER.warning(
+            f"{diff} out of {fop_sr_valid_mask.shape[0]} "
+            f"states did not produce successful "
+            f"forecasts. The USA ensemble will be built without these "
+            f"states."
+        )
+
+    # ------------------
+    # Quantile forecasts
+    # ------------------
+    usa_fop.fore_quantiles = fop_sr.iloc[0].fore_quantiles.copy()
+    for fop in fop_sr.iloc[1:]:
+        if fop.fore_quantiles is not None:
+            usa_fop.fore_quantiles += fop.fore_quantiles
+
+    # # -----------------------------------
+    # # Categorical – Rate change forecasts
+    # # -----------------------------------
+    #
+    # # Take samples from all locations
+    # # -------------------------------
+    # rng = np.random.default_rng(20)  # Take a temporary generator
+    # df_list = list()
+    #
+    # for state_name, fop in fop_sr.items():
+    #     fop: FluSight2024ForecastOperator
+    #     nsamples_state, nsteps = fop.inc.fore_aggr_df.shape
+    #
+    #     # --- Take samples
+    #     i_samples = rng.integers(
+    #         0, nsamples_state, size=params.general["nsamples_to_us"]
+    #     )
+    #     df = fop.inc.fore_aggr_df.loc[i_samples, :]  # Take sample trajectories
+    #     # --- Sort at each date
+    #     df: pd.DataFrame = df.apply(lambda x: x.sort_values().values, axis=0)
+    #     df.reset_index(inplace=True, drop=True)
+    #
+    #     df_list.append(df)
+    #
+    # multistate_df = pd.concat(
+    #     df_list, keys=list(fop_sr.keys()),
+    #     names=["location", "i_sample"],
+    # )
+    #
+    # # Aggregate spatially
+    # # -------------------
+    # usa_fop.inc.fore_aggr_df = multistate_df.groupby("i_sample").sum()
+    # last_observed_date = usa_fop.inc.raw_sr.index.max() + usa_fop.gran_dt
+    # # last_observed_date = usa_fop.inc.raw_sr.index.max()  # TODO: change here too
+    #
+    # # Calculate the categorical rate change forecasts
+    # # -----------------------------------------------
+    # df = calc_rate_change_categorical_flusight(
+    #     usa_fop,
+    #     count_rates=data.count_rates.loc["US"],
+    #     dates=data.dates,
+    #     # day_pres=data.day_pres,
+    #     last_observed_date=last_observed_date,
+    #     thresholds=params.postprocessing.get("categorical_thresholds", None)
+    # )
+    # # Prepare the df to be "appended" to the other states df
+    # df.columns.name = "horizon"
+    # df.index = pd.MultiIndex.from_product(
+    #     [["US"], df.index], names=["location_name", "rate_change_id"]
+    # )
+    # # df.index.name = "rate_change_id"
+    # df.name = "US"
+    #
+    # # data.rate_fore_df = pd.concat([data.rate_fore_df, df])
+    # data.rate_fore_df = pd.concat(
+    #     [data.rate_fore_df, df])
+    #
+    # usa_fop.logger.log(
+    #     15, "USA quantile and rate change aggregations concluded.")
+
+    return usa_fop
 
 
 @GLOBAL_XTT.track()
@@ -615,6 +792,7 @@ def score_forecasts_once(params: Params, data: Data, iter_data: TrainIterationDa
     # -----------------------------------
     # Run all scores
     # -----------------------------------
+    # TODO FIX
     results = map_parallel_or_sequential(
         lambda item: score_one_forecast(item[1], item[0][0], item[0][1]),
         contents=fop_sr.items(),
@@ -705,9 +883,9 @@ def run_training(params: Params, data: Data, WHAT_ELSE=None):
     #
 
     # for muitas vezes (training loop):
-    iter_data = TrainIterationData()
 
-    run_forecasts_once(params, data, iter_data, WHAT_ELSE=WHAT_ELSE)
+    iter_data = run_forecasts_once(params, data, WHAT_ELSE=WHAT_ELSE)
+
     score_forecasts_once(params, data, iter_data)
 
     # Now you can work with `iter_data` to postprocess and evaluate this iteration.
