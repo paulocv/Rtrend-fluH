@@ -163,6 +163,7 @@ class TrainIterationData:
     fop_sr_valid_mask: pd.Series
     daily_scores_df: pd.DataFrame
     weekly_scores_df: pd.DataFrame
+    # ^ ^ Signature: df.loc[(day_pres, state_name, horizon), score_name] = score_value
 
     def __init__(self, **kwargs):
         """"""
@@ -484,7 +485,7 @@ def run_forecasts_once(
         def state_task(state_inputs):
             """Forecast for one location and date."""
             i_state, state_name = state_inputs
-            _sn = make_file_friendly_name(state_name)
+            state_name_file_friendly = make_file_friendly_name(state_name)
             _LOGGER.debug(f"Called state_task for day_pres={day_pres} and state_name={state_name}")
 
             # Preparation work
@@ -507,9 +508,9 @@ def run_forecasts_once(
                 incid_series=state_series,  # Base class args
                 params=params.__dict__,
                 nperiods_fore=WEEKLEN * params.general["nperiods_fore"],
-                name=f"{_sn}_{day_pres_str}",
+                name=f"{state_name_file_friendly}_{day_pres_str}",
                 tg_past=tg,
-                state_name=_sn
+                state_name=state_name
             )
             _LOGGER.debug(f"Created forecast operator {fop.name}")
 
@@ -540,7 +541,7 @@ def run_forecasts_once(
         # --- Build aggregate forecast over all locations
         usa_fop = aggregate_all_states_forecast(
             params, state_fop_list, state_name_to_id,
-            day_pres, truth_df
+            day_pres, truth_df, pop_df
         )
         state_fop_list.append(usa_fop)
 
@@ -573,13 +574,17 @@ def run_forecasts_once(
     flat_fop_list = sum(date_state_fop_list, [])
     # Agnostically builds the index instead of using `data.date_state_idx`
     flat_index = pd.MultiIndex.from_tuples(
-        [(fop.time.pres.date().isoformat(), fop.state_name) for fop in flat_fop_list])
+        [(fop.time.pres.date().isoformat(), fop.state_name) for fop in flat_fop_list],
+        names=data.date_state_idx.names
+    )
     iter_data.fop_sr = pd.Series(flat_fop_list, index=flat_index)
+    iter_data.fop_sr.name = "fop"
 
     # --- Store and check valid outputs
     iter_data.fop_sr_valid_mask = iter_data.fop_sr.map(
         lambda fop: fop.success
     )
+    iter_data.fop_sr_valid_mask.name = "is_valid"
 
     return iter_data
 
@@ -590,6 +595,7 @@ def aggregate_all_states_forecast(
         state_name_to_id,
         day_pres: pd.Timestamp,
         truth_df: pd.DataFrame,
+        pop_df: pd.DataFrame,
 ) -> USAForecast:
     """ Combines forecasts from all states to produce a USA-level forecast.
     If not all states have produced forecasts, this should not be
@@ -601,6 +607,7 @@ def aggregate_all_states_forecast(
         state_fop_list,
         index=[fop.name for fop in state_fop_list],
     )
+    state_name_file_friendly = make_file_friendly_name(params.us_location_name)
 
     # --- Select USA-level truth
     truth_sr = (
@@ -609,11 +616,25 @@ def aggregate_all_states_forecast(
         .sort_index()
     )
     # --- Create USA forecast object, special
-    usa_fop = USAForecast(
-        truth_sr,
+    # # -()- Class to mock a ForecastOperator for aggregations.
+    # usa_fop = USAForecast(
+    #     truth_sr,
+    #     nperiods_fore=WEEKLEN * params.general["nperiods_fore"],
+    #     day_pres=day_pres,
+    #     name=f"US_{day_pres_str}",
+    # )
+
+    # -()- Use an actual forecast operator for US-level
+    usa_fop = ParSelTrainOperator(
+        day_pres, params.general["nperiods_main_roi"],  # Child class args
+        population=pop_df.loc[params.us_location_name, "population"],
+        # --- Base class arguments
+        incid_series=truth_sr,  # Base class args
+        params=params.__dict__,
         nperiods_fore=WEEKLEN * params.general["nperiods_fore"],
-        day_pres=day_pres,
-        name=f"US_{day_pres_str}",
+        name=f"{state_name_file_friendly}_{day_pres_str}",
+        tg_past=get_tg_object(params.general["tg_model"], **params.general),
+        state_name=params.us_location_name,
     )
 
     # --- Filter invalid forecasts
@@ -681,7 +702,7 @@ def aggregate_all_states_forecast(
     # # -----------------------------------------------
     # df = calc_rate_change_categorical_flusight(
     #     usa_fop,
-    #     count_rates=data.count_rates.loc["US"],
+    #     count_rates=data.count_rates.loc[params.us_location_name],
     #     dates=data.dates,
     #     # day_pres=data.day_pres,
     #     last_observed_date=last_observed_date,
@@ -792,14 +813,11 @@ def score_forecasts_once(params: Params, data: Data, iter_data: TrainIterationDa
     # -----------------------------------
     # Run all scores
     # -----------------------------------
-    # TODO FIX
     results = map_parallel_or_sequential(
-        lambda item: score_one_forecast(item[1], item[0][0], item[0][1]),
+        lambda item: score_one_forecast(item[1], pd.Timestamp(item[0][0]), item[0][1]),
         contents=fop_sr.items(),
         ncpus=1,
     )
-
-    # TODO: USA
 
     # ----------------------------------------------
     # Construct report and aggregate for final score
@@ -807,20 +825,14 @@ def score_forecasts_once(params: Params, data: Data, iter_data: TrainIterationDa
     # --- Daily full report
     iter_data.daily_scores_df = pd.concat(
         [res[0] for res in results],
-        keys=fop_sr.index
+        keys=fop_sr.index, names=list(data.date_state_idx.names)
     )
 
     # --- Weekly full report
     iter_data.weekly_scores_df = pd.concat(
         [res[1] for res in results],
-        keys=fop_sr.index
+        keys=fop_sr.index, names=list(data.date_state_idx.names)
     )
-
-
-    # print(daily_scores_df)
-    # print(weekly_scores_df)
-    # # for res in results:
-    #     print(res[1])
 
     _LOGGER.log(SUCCESS, "Scoring completed.")
 
@@ -891,7 +903,7 @@ def run_training(params: Params, data: Data, WHAT_ELSE=None):
     # Now you can work with `iter_data` to postprocess and evaluate this iteration.
 
 
-
+    print("PASS")
     pass
 
 

@@ -21,7 +21,7 @@ general:
   # preproc_data_dir: "preproc/2022-2023_buffer/scaling-dev/data_pwr/"  # Buffered preprocessed and MCMC data
   preproc_data_dir: "preproc/dev_train/01"
 
-  use_states: ["Wyoming", "Illinois", "Florida", "California"] # ["Wyoming", "Illinois", "New York", "California"]  # Leave blank to use all
+  use_states: ["Wyoming", "Illinois", "New Mexico", "California"] # ["Wyoming", "Illinois", "New York", "California"]  # Leave blank to use all
   dont_use_states: ["US", "Virgin Islands"]
 
   # --- Generation time
