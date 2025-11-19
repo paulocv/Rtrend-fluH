@@ -211,6 +211,7 @@ rsconnect/
 OLD/*
 !OLD/2022-2023_scripts
 !OLD/2023-2024_scripts
+!OLD/2024-2025_scripts
 
 # Jupyter notebooks
 *.ipynb
