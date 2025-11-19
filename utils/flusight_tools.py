@@ -140,9 +140,9 @@ class FluSightGeneralOutputs:
             return d
 
 
-class FluSight2023Fore:
+class FluSight2023ForeBunch:
     """Data bunch to hold raw and preprocessed data from a FluSight
-    forecast hubverse file for the 2023-2024 and 2024-2025 seasons
+    forecast hubverse file for the 2023-2024, 2024-2025 and 2025-2026 seasons
     (single reference date).
     """
     raw_df: pd.DataFrame
@@ -197,6 +197,10 @@ class FluSight2023Fore:
         df.columns.name = "category"
 
         self.ratechange_df = df
+
+
+# Backward name compatibility
+FluSight2023Fore = FluSight2023ForeBunch
 
 
 def calc_horizon_from_dates(date_seq, ref_date):

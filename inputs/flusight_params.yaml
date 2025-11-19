@@ -7,7 +7,7 @@ general:
   day_pres_id: -1 # -266 -358 [Use for testing 2022]  # Index of day_pres in the truth file. Units are IN DAYS, not weeks!
   # day_pres_id: -8 # With prelim data!  # Index of day_pres in the truth file. Units are IN DAYS, not weeks!
   nperiods_fore: 6  # Weeks ahead of the last observed data to forecast.
-  season_start: 2024-09-01   # Date from which cumulatives are calculated.
+  season_start: 2025-09-01   # Date from which cumulatives are calculated.
   due_example: 2023-10-04 23:00:00  # (WED 11PM) Example of due date/time
   ref_example: 2023-10-07           # (SAT) Example of reference date
   export_horizons_quantiles: [0, 1, 2, 3]  # Only export these horizon numbers to the FluSight file (quantile forecasts). Blank to export all.

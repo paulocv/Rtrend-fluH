@@ -28,9 +28,9 @@ from utils.flusight_tools import (
     rate_change_i_to_name,
     calc_target_date_from_horizon,
 )
-from utils.forecast_operators_flusight_2024 import (
-    # WEEKLEN,
-    FluSight2024ForecastOperator,
+
+from utils.forecast_operators_flusight_2025 import (
+    FluSight2025ForecastOperator,
 )
 
 from rtrend_forecast.visualization import (
@@ -399,7 +399,7 @@ def report_execution_times():
 #
 
 def apply_forecast_exceptions(
-        fop: FluSight2024ForecastOperator,
+        fop: FluSight2025ForecastOperator,
 ):
     """Handle exceptional conditions by changing forecast parameters."""
 
@@ -796,7 +796,7 @@ def run_forecasts_once(params: Params, data: Data):
 
         # Create the forecast operator
         # ----------------------------
-        fop = FluSight2024ForecastOperator(
+        fop = FluSight2025ForecastOperator(
             # --- Child class arguments
             day_pres, params.general["nperiods_main_roi"],  # Child class args
             population=pop_df.loc[state_name, "population"],
@@ -855,7 +855,7 @@ def run_forecasts_once(params: Params, data: Data):
 
     results = list()
     for _state_name, _fop in fop_sr.items():
-        _fop: FluSight2024ForecastOperator
+        _fop: FluSight2025ForecastOperator
         # last_observed_date = _fop.raw_incid_sr.index.max()
         last_observed_date = _fop.raw_incid_sr.index.max() + _fop.gran_dt
         # last_observed_date = _fop.time.pg1  #  TODO: rethink what should be the date here.
@@ -931,7 +931,7 @@ def calculate_for_usa(params: Params, data: Data):
     df_list = list()
 
     for state_name, fop in fop_sr.items():
-        fop: FluSight2024ForecastOperator
+        fop: FluSight2025ForecastOperator
         nsamples_state, nsteps = fop.inc.fore_aggr_df.shape
 
         # --- Take samples
@@ -1012,7 +1012,7 @@ def postprocess_all(params: Params, data: Data):
         #DEVNOTE: `fop` should also be compatible with USAForecast
         """
 
-        fop: FluSight2024ForecastOperator | USAForecast
+        fop: FluSight2025ForecastOperator | USAForecast
         d = OrderedDict()  # Dict that's used to construct the dataframe
 
         size = fop.fore_quantiles.size  # Total number of items
@@ -1140,7 +1140,7 @@ def postprocess_all(params: Params, data: Data):
     rt_fore_dfs = list()
     keys = list()
     for state_name, fop in fop_sr.items():
-        fop: FluSight2024ForecastOperator
+        fop: FluSight2025ForecastOperator
         # --- Select R(t) stats series from extras
         df_past = pd.DataFrame(
             {key: value for key, value in fop.extra.items()
@@ -1167,7 +1167,7 @@ def postprocess_all(params: Params, data: Data):
     preproc_dfs = list()
     keys = list()
     for state_name, fop in fop_sr.items():
-        fop: FluSight2024ForecastOperator
+        fop: FluSight2025ForecastOperator
 
         state_preproc_df = pd.DataFrame(
             {"past_denoised": fop.extra["past_denoised_sr"]}

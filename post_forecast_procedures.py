@@ -14,7 +14,7 @@ import pandas as pd
 
 from rtrend_forecast.reporting import get_rtrend_logger, SUCCESS
 from utils.flusight_tools import (
-    FluSight2023Fore,
+    FluSight2023ForeBunch,
     FluSightGeneralOutputs,
     FluSightDates,
 )
@@ -54,7 +54,7 @@ class Params:
 class Data:
     """"""
     gfobj: FluSightGeneralOutputs  # General forecasts
-    fsobj: FluSight2023Fore  # Flusight file data
+    fsobj: FluSight2023ForeBunch  # Flusight file data
     truth: FluDailyTruthData  # Truth file data
     dates: FluSightDates  # Reference, now and deadline dates
 
@@ -121,7 +121,7 @@ def import_data(params) -> Data:
     data = Data()
 
     # Import forecast and truth data
-    data.fsobj = FluSight2023Fore(params.flusight_file)
+    data.fsobj = FluSight2023ForeBunch(params.flusight_file)
     data.gfobj = FluSightGeneralOutputs(params.fore_outputs_dir)
     data.truth = FluWeeklyTruthData(params.truth_file)
 
