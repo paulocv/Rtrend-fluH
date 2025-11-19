@@ -1,7 +1,7 @@
 """
 Run routine procedures to set up the workspace for a new week of the
 FluSight forecast.
-Adapted for the 2024-2025 season..
+Adapted for the 2025-2026 season.
 
 
 """
@@ -26,7 +26,7 @@ DEFAULT_PARAMS = dict(
     truth_file=Path("hosp_data/truth_latest.csv"),
     fetch_truth=True,
     backup_truth=True,
-    backup_dir=Path("hosp_data/season_2024-2025"),
+    backup_dir=Path("hosp_data/season_2025-2026"),
     nhsn_file="https://raw.githubusercontent.com/paulocv/respiratory_archive/refs/heads/main/datasets/nhsn_weekly_jurisdiction/nhsn_latest.csv",
 )
 
