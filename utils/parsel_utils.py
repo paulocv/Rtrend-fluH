@@ -29,7 +29,7 @@ def load_population_data(
     """
 
     out = dict()
-    out["pop_df"] = pd.read_csv(fname, index_col=2)   # TODO: Check column 2 and revise this option
+    out["pop_df"] = pd.read_csv(fname, index_col="location_name")
     out["all_state_names"] = list(out["pop_df"].index)
     out["state_name_to_id"] = {  # From state name to state ID as str
         idx: sr["location"] for idx, sr in out["pop_df"].iterrows()
