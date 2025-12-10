@@ -441,8 +441,8 @@ def apply_forecast_exceptions(
         pass
 
     if fop.state_name == "Colorado":
-        # fop.sp["drift_coef"] *= 4.0 / 0.25
-        # fop.ep["scale_ref_inc"] *= 0.25
+        fop.sp["drift_coef"] *= 2.0 / 1.0
+        # fop.ep["scale_ref_inc"] *= 1.0
         # fop.sp["initial_bias"] += -0.10
         pass
 
@@ -493,8 +493,8 @@ def apply_forecast_exceptions(
 
     if fop.state_name == "Idaho":
         # fop.raw_incid_sr[-1] += 10
-        # fop.sp["drift_coef"] *= 13.0 / 0.20
-        # fop.ep["scale_ref_inc"] *= 0.20
+        fop.sp["drift_coef"] *= 1.6 / 1.0
+        # fop.ep["scale_ref_inc"] *= 1.0
         # fop.sp["initial_bias"] -= 0.05
         pass
 
@@ -530,7 +530,7 @@ def apply_forecast_exceptions(
         # fop.sp["drift_coef"] *= 15.0 / 0.40
         # fop.pp["denoise_cutoff"] *= 1.3
         # fop.ep["scale_ref_inc"] *= 0.40
-        # fop.sp["initial_bias"] -= 0.04
+        fop.sp["initial_bias"] += 0.08
         pass
 
     if fop.state_name == "Louisiana":
@@ -557,10 +557,10 @@ def apply_forecast_exceptions(
         pass
 
     if fop.state_name == "Massachusetts":
-        # fop.sp["drift_coef"] *= 14.0 / 0.20
+        fop.sp["drift_coef"] *= 1.0 / 0.75
+        fop.ep["scale_ref_inc"] *= 0.75
         # fop.pp["denoise_cutoff"] *= 1.2
-        # fop.ep["scale_ref_inc"] *= 0.20
-        # fop.sp["initial_bias"] += -0.12
+        fop.sp["initial_bias"] += 0.12
         pass
 
     if fop.state_name == "Michigan":
@@ -631,15 +631,15 @@ def apply_forecast_exceptions(
 
     if fop.state_name == "New Mexico":
         # fop.pp["denoise_cutoff"] *= 1.2
-        # fop.sp["drift_coef"] *= 4.0 / 0.45
-        # fop.ep["scale_ref_inc"] *= 0.45
+        fop.sp["drift_coef"] *= 1.3 / 1.0
+        fop.ep["scale_ref_inc"] *= 1.0
         # fop.sp["initial_bias"] += -0.05
         pass
 
     if fop.state_name == "New York":
-        # fop.sp["drift_coef"] *= 4.0 / 0.35
-        # fop.sp["initial_bias"] += -0.05
-        # fop.ep["scale_ref_inc"] *= 0.35
+        fop.sp["drift_coef"] *= 1.5 / 1.8
+        fop.ep["scale_ref_inc"] *= 1.8
+        fop.sp["initial_bias"] += 0.05
         pass
 
     if fop.state_name == "North Carolina":
@@ -664,10 +664,10 @@ def apply_forecast_exceptions(
         pass
 
     if fop.state_name == "Oklahoma":
-        fop.sp["drift_coef"] *= 1.0 / 0.30
+        fop.sp["drift_coef"] *= 0.6 / 0.50
         # fop.pp["denoise_cutoff"] *= 1.5
-        fop.ep["scale_ref_inc"] *= 0.30
-        fop.sp["initial_bias"] += 0.05
+        fop.ep["scale_ref_inc"] *= 0.50
+        fop.sp["initial_bias"] += 0.08
         pass
 
     if fop.state_name == "Oregon":
@@ -700,13 +700,10 @@ def apply_forecast_exceptions(
         pass
 
     if fop.state_name == "South Dakota":
-        fop.raw_incid_sr[-2:] += 4
-        # fop.sp["drift_coef"] *= 10.0 / 0.10
-        # fop.ep["scale_ref_inc"] *= 0.20
-        # fop.sp["initial_bias"] += -0.10
-        # fop.sp["synth_method"] = "rnd_normal"
-        # fop.sp["center"] = 1.01
-        # fop.sp["sigma"] = 0.20
+        fop.raw_incid_sr[-1:] += 1
+        fop.sp["drift_coef"] *= 0.50 / 0.4
+        fop.ep["scale_ref_inc"] *= 0.4
+        fop.sp["initial_bias"] += 0.20
         pass
 
     if fop.state_name == "Tennessee":
@@ -731,8 +728,9 @@ def apply_forecast_exceptions(
         pass
 
     if fop.state_name == "Vermont":
-        fop.sp["drift_coef"] *= 1.0 / 0.40
-        fop.ep["scale_ref_inc"] *= 0.40
+        fop.raw_incid_sr[-1:] += 5
+        fop.sp["drift_coef"] *= 1.0 / 0.35
+        fop.ep["scale_ref_inc"] *= 0.35
         # fop.pp["denoise_cutoff"] *= 1.3
         # fop.sp["initial_bias"] += 0.02
         pass
@@ -767,10 +765,10 @@ def apply_forecast_exceptions(
         pass
 
     if fop.state_name == "Wyoming":
-        # fop.sp["drift_coef"] *= 8.0 / 0.15
-        # fop.ep["scale_ref_inc"] *= 0.15
+        fop.sp["drift_coef"] *= 1.4 / 0.80
+        fop.ep["scale_ref_inc"] *= 0.80
         # fop.raw_incid_sr.iloc[-1] += 2.0
-        # fop.sp["initial_bias"] -= 0.08
+        fop.sp["initial_bias"] += 0.10
         pass
 
     if fop.state_name == "Puerto Rico":
