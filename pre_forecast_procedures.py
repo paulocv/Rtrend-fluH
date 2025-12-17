@@ -16,7 +16,8 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from utils.fetch_data_utils import make_target_data_from_nhsn
+# from utils.fetch_data_utils import make_target_data_from_nhsn,   # OLD library
+from utils.nhsn_data import fetch_nhsn_hosp_data, make_target_data_from_nhsn, choose_data_url_and_get_metadata
 from rtrend_forecast.reporting import get_rtrend_logger, SUCCESS
 
 _LOGGER = get_rtrend_logger().getChild(__name__)
@@ -27,7 +28,11 @@ DEFAULT_PARAMS = dict(
     fetch_truth=True,
     backup_truth=True,
     backup_dir=Path("hosp_data/season_2025-2026"),
-    nhsn_file="https://raw.githubusercontent.com/paulocv/respiratory_archive/refs/heads/main/datasets/nhsn_weekly_jurisdiction/nhsn_latest.csv",
+    truth_data_source="nhsn",
+    # truth_data_source="respiratory_archive",
+    resp_archive_latest_url="https://raw.githubusercontent.com/paulocv/respiratory_archive/refs/heads/main/datasets"
+                            "/nhsn_weekly_jurisdiction/nhsn_latest.csv",
+    nhsn_release="latest",
 )
 
 
@@ -48,7 +53,8 @@ class CLArgs:
     """Command line arguments. This is only used for type hinting."""
     truth_file: Path
     now: pd.Timestamp
-    nhsn_file: Path
+    fetch_truth: bool
+    backup_truth: bool
 
 
 class Params:
@@ -65,11 +71,13 @@ class Params:
     # ...
     truth_file: Path
     truth_file_weekly: Path
-    nhsn_file: Path
     now: pd.Timestamp
     fetch_truth: bool
     backup_truth: bool
     backup_dir: Path
+    truth_data_source: str
+    resp_archive_latest_url: str
+    nhsn_release: str
 
 
 class Data:
@@ -105,12 +113,12 @@ def parse_args():
         type=Path,
     )
 
-    parser.add_argument(
-        "--nhsn-file",
-        help="(Optional) path to the nhsn data file. Default is "
-             f"{DEFAULT_PARAMS['nhsn_file']}.",
-        type=Path,
-    )
+    # parser.add_argument(
+    #     "--nhsn-file",
+    #     help="(Optional) path to the nhsn data file. Default is "
+    #          f"{DEFAULT_PARAMS['nhsn_file']}.",
+    #     type=Path,
+    # )
 
     parser.add_argument(
         "--now", type=pd.Timestamp,
@@ -170,11 +178,37 @@ def fetch_and_backup_truth_data(params: Params, data: Data):
     # --- Fetching data, saving to latest file
     if params.fetch_truth:
 
-        nhsn_df = pd.read_csv(params.nhsn_file, parse_dates=["weekendingdate"])
-        print(f"Fetched NHSN archive data from: {params.nhsn_file}")
-        truth_df = make_target_data_from_nhsn(nhsn_df, "flu")
+        # nhsn_df = pd.read_csv(params.nhsn_file, parse_dates=["weekendingdate"])
+        # print(f"Fetched NHSN archive data from: {params.nhsn_file}")
+
+        # --- Choice of data source
+        if params.truth_data_source == "nhsn":
+
+            _LOGGER.info(f"Querrying NHSN metadata")
+            url, nhsn_metadata, release = (
+                choose_data_url_and_get_metadata(params.nhsn_release)
+            )
+            _LOGGER.info(f"Fetching data file from NHSN ({params.nhsn_release=}): {url=}")
+            nhsn_df = fetch_nhsn_hosp_data(request_url=url, parse_dates=True,)
+            _LOGGER.info(f"Fetch completed. Release = \"{release}\"")
+
+        elif params.truth_data_source == "respiratory_archive":
+            _LOGGER.info(f"Fetching NHSN file from the Respiratory Archive: "
+                         f"{params.resp_archive_latest_url}.")
+            nhsn_df = pd.read_csv(
+                params.resp_archive_latest_url, parse_dates=["weekendingdate"]
+            )
+            _LOGGER.info(f"Fetch completed.")
+
+        else:
+            raise ValueError(f"Unrecognized value: {params.truth_data_source=}")
+
+        truth_df = make_target_data_from_nhsn(
+            nhsn_df, "flu", locations_data=Path("aux_data/locations.csv")
+        )
 
         truth_df.to_csv(params.truth_file, index=False)
+        _LOGGER.log(SUCCESS, f"Prepared and saved truth file to `{params.truth_file}`")
 
     else:  # Fetch truth skipped
         _LOGGER.warn(
