@@ -178,9 +178,6 @@ def fetch_and_backup_truth_data(params: Params, data: Data):
     # --- Fetching data, saving to latest file
     if params.fetch_truth:
 
-        # nhsn_df = pd.read_csv(params.nhsn_file, parse_dates=["weekendingdate"])
-        # print(f"Fetched NHSN archive data from: {params.nhsn_file}")
-
         # --- Choice of data source
         if params.truth_data_source == "nhsn":
 
