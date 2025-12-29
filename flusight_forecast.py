@@ -11,6 +11,8 @@ import sys
 from collections import OrderedDict
 from pathlib import Path
 
+sys.path.append("../../Rtrend_project/")  # To make it compatible here for now
+
 import numpy as np
 import pandas as pd
 import yaml
@@ -560,7 +562,7 @@ def apply_forecast_exceptions(
         fop.sp["drift_coef"] *= 1.0 / 0.75
         fop.ep["scale_ref_inc"] *= 0.75
         # fop.pp["denoise_cutoff"] *= 1.2
-        fop.sp["initial_bias"] += 0.12
+        fop.sp["initial_bias"] += 0.02
         pass
 
     if fop.state_name == "Michigan":
@@ -688,7 +690,7 @@ def apply_forecast_exceptions(
         # fop.raw_incid_sr[-4:] += 1
         fop.sp["drift_coef"] *= 1.3 / 1.0
         fop.ep["scale_ref_inc"] *= 1.0
-        # fop.sp["initial_bias"] -= 0.08
+        fop.sp["initial_bias"] -= 0.05
         pass
 
     if fop.state_name == "South Carolina":
