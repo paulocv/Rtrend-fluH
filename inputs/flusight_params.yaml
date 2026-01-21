@@ -88,7 +88,7 @@ rt_synthesis:
   drift_coef: 3.730e-5  # Pure drift coefficient. Drift = coef * c(t). Overriden unless using synth_method = drift_const.
   rw_coef: 0.0
   bias: -0.001  # 0.001  # Bias added to the exponent at each R(t) drift step
-  initial_bias: -0.08  # Bias added at the first R(t) drift step
+  initial_bias: -0.03  # Bias added at the first R(t) drift step
 
   # Static ramp (RAMP COEFFICIENTS WILL BE MODULATED)
   k_start: 0.95    # Ramp method: starting coefficient
