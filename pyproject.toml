@@ -1,7 +1,7 @@
 [project]
 name = "rtrend-fluh"
 version = "0.1.0"
-description = "Add your description here"
+description = "Bayesian approach to forecast Influenza hospitalizations for the CDC FluSight initiative."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
