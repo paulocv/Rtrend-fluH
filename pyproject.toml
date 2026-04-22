@@ -1,0 +1,17 @@
+[project]
+name = "rtrend-fluh"
+version = "0.1.0"
+description = "Bayesian approach to forecast Influenza hospitalizations for the CDC FluSight initiative."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "rtrend-forecast",
+]
+
+[tool.uv.sources]
+rtrend-forecast = { path = "../rtrend-forecast", editable = true }
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+]
