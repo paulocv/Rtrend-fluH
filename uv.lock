@@ -4165,14 +4165,13 @@ requires-dist = [
     { name = "plotly" },
     { name = "pyarrow", marker = "extra == 'excel'" },
     { name = "pyinstaller", marker = "extra == 'dev'" },
-    { name = "python-kaleido", marker = "extra == 'viz'" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "scipy" },
     { name = "statsmodels" },
     { name = "xlrd", marker = "extra == 'excel'" },
 ]
-provides-extras = ["dev", "viz", "excel", "numpyro"]
+provides-extras = ["dev", "excel", "numpyro"]
 
 [[package]]
 name = "scipy"
